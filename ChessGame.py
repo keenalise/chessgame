@@ -67,7 +67,9 @@ class ChessGame:
             self.highlight_square(row, col)
 
     def highlight_square(self, row, col):
+        self.draw_board()
         self.canvas.create_rectangle(col * 80, row * 80, (col + 1) * 80, (row + 1) * 80, outline="red", width=3)
+        self.draw_pieces()
 
     def move_piece(self, row, col):
         start_row, start_col = self.selected_piece
@@ -75,17 +77,22 @@ class ChessGame:
         if self.is_valid_move(start_row, start_col, row, col, piece):
             self.board[start_row][start_col] = None
             self.board[row][col] = piece
-            
+
             if self.is_in_check(self.turn):
                 # Undo move if it leaves the king in check
                 self.board[start_row][start_col] = piece
                 self.board[row][col] = None
                 messagebox.showerror("Invalid Move", "You cannot leave your king in check!")
             else:
-                if self.is_checkmate('black' if self.turn == 'white' else 'white'):
+                # Check for pawn promotion
+                if piece.endswith('pawn') and (row == 0 or row == 7):
+                    self.promote_pawn(row, col)
+
+                self.turn = 'black' if self.turn == 'white' else 'white'
+                if self.is_checkmate(self.turn):
                     messagebox.showinfo("Checkmate", f"{self.turn.capitalize()} is in checkmate!")
                     self.root.quit()
-                self.turn = 'black' if self.turn == 'white' else 'white'
+        
         self.selected_piece = None
         self.draw_board()
         self.draw_pieces()
@@ -116,29 +123,94 @@ class ChessGame:
                 return True
         elif piece.endswith('rook'):
             if start_row == end_row or start_col == end_col:
-                return True
+                return self.is_path_clear(start_row, start_col, end_row, end_col)
         elif piece.endswith('knight'):
             if (abs(start_row - end_row), abs(start_col - end_col)) in [(2, 1), (1, 2)]:
                 return True
         elif piece.endswith('bishop'):
             if abs(start_row - end_row) == abs(start_col - end_col):
-                return True
+                return self.is_path_clear(start_row, start_col, end_row, end_col)
         elif piece.endswith('queen'):
             if start_row == end_row or start_col == end_col or abs(start_row - end_row) == abs(start_col - end_col):
-                return True
+                return self.is_path_clear(start_row, start_col, end_row, end_col)
         return False
+
+    def is_path_clear(self, start_row, start_col, end_row, end_col):
+        step_row = (end_row - start_row) // max(abs(end_row - start_row), 1)
+        step_col = (end_col - start_col) // max(abs(end_col - start_col), 1)
+        current_row, current_col = start_row + step_row, start_col + step_col
+        while (current_row, current_col) != (end_row, end_col):
+            if self.board[current_row][current_col] is not None:
+                return False
+            current_row += step_row
+            current_col += step_col
+        return True
 
     def is_in_check(self, color):
         king_pos = self.find_king(color)
         if king_pos is None:
-            return False  # King not found, cannot be in check
+            return False
+
         opponent_color = 'black' if color == 'white' else 'white'
-        for row in range(8):
-            for col in range(8):
-                piece = self.board[row][col]
-                if piece and piece.startswith(opponent_color):
-                    if self.is_valid_move(row, col, king_pos[0], king_pos[1], piece):
-                        return True
+        king_row, king_col = king_pos
+
+        # Check for pawn attacks
+        pawn_direction = -1 if color == 'white' else 1
+        for col_offset in [-1, 1]:
+            check_col = king_col + col_offset
+            check_row = king_row + pawn_direction
+            if 0 <= check_row < 8 and 0 <= check_col < 8:
+                piece = self.board[check_row][check_col]
+                if piece == f'{opponent_color}_pawn':
+                    return True
+
+        # Check for knight attacks
+        knight_moves = [(-2, -1), (-2, 1), (-1, -2), (-1, 2),
+                        (1, -2), (1, 2), (2, -1), (2, 1)]
+        for row_offset, col_offset in knight_moves:
+            check_row = king_row + row_offset
+            check_col = king_col + col_offset
+            if 0 <= check_row < 8 and 0 <= check_col < 8:
+                piece = self.board[check_row][check_col]
+                if piece == f'{opponent_color}_knight':
+                    return True
+
+        # Check for sliding pieces (rook, bishop, queen) and king
+        directions = {
+            'straight': [(0, 1), (0, -1), (1, 0), (-1, 0)],
+            'diagonal': [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+        }
+
+        # Check straight lines (rook and queen)
+        for row_dir, col_dir in directions['straight']:
+            check_row, check_col = king_row + row_dir, king_col + col_dir
+            distance = 1
+            while 0 <= check_row < 8 and 0 <= check_col < 8:
+                piece = self.board[check_row][check_col]
+                if piece:
+                    if piece.startswith(opponent_color):
+                        if piece.endswith(('rook', 'queen')) or (distance == 1 and piece.endswith('king')):
+                            return True
+                    break
+                check_row += row_dir
+                check_col += col_dir
+                distance += 1
+
+        # Check diagonal lines (bishop and queen)
+        for row_dir, col_dir in directions['diagonal']:
+            check_row, check_col = king_row + row_dir, king_col + col_dir
+            distance = 1
+            while 0 <= check_row < 8 and 0 <= check_col < 8:
+                piece = self.board[check_row][check_col]
+                if piece:
+                    if piece.startswith(opponent_color):
+                        if piece.endswith(('bishop', 'queen')) or (distance == 1 and piece.endswith('king')):
+                            return True
+                    break
+                check_row += row_dir
+                check_col += col_dir
+                distance += 1
+
         return False
 
     def find_king(self, color):
@@ -150,7 +222,8 @@ class ChessGame:
 
     def is_checkmate(self, color):
         if not self.is_in_check(color):
-            return False  # Not in check, so can't be checkmate
+            return False
+
         for row in range(8):
             for col in range(8):
                 piece = self.board[row][col]
@@ -170,8 +243,36 @@ class ChessGame:
                                 # Undo the move
                                 self.board[row][col] = piece
                                 self.board[r][c] = original_piece
-        return True
 
+        return True
+    
+    def promote_pawn(self, row, col):
+    # Identify the color of the pawn being promoted
+        current_piece = self.board[row][col]
+        piece_color = current_piece.split('_')[0]
+        
+        from tkinter import simpledialog, messagebox
+        
+        promotion_choice = simpledialog.askstring("Pawn Promotion", "Choose a piece (Q/R/B/N):")
+        if promotion_choice:
+            promotion_choice = promotion_choice.upper()
+            if promotion_choice == 'Q':
+                self.board[row][col] = f'{piece_color}_queen'
+            elif promotion_choice == 'R':
+                self.board[row][col] = f'{piece_color}_rook'
+            elif promotion_choice == 'B':
+                self.board[row][col] = f'{piece_color}_bishop'
+            elif promotion_choice == 'N':
+                self.board[row][col] = f'{piece_color}_knight'
+            else:
+                messagebox.showerror("Invalid Choice", f"Invalid choice. Promoting to {piece_color} Queen.")
+                self.board[row][col] = f'{piece_color}_queen'
+        else:
+            self.board[row][col] = f'{piece_color}_queen'
+    
+    
+           
+        
 if __name__ == "__main__":
     root = tk.Tk()
     game = ChessGame(root)
