@@ -7,3 +7,8 @@ The Chess GUI is made by me which includes features like
 2. pawn promotion
 3. legal moves of chess pieces
 4. checks and checkmate
+
+Things to be implemented: 
+1. castling 
+2. en passant
+3. moves history
