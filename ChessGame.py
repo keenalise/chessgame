@@ -49,14 +49,14 @@ class BeautifulChessGame:
         self.setup_pieces()
         
     def setup_ui(self):
-        # Main frame
+        # Main frame with horizontal layout
         main_frame = tk.Frame(self.root, bg='#2c3e50', padx=20, pady=20)
         main_frame.pack()
         
         # Title
         title_label = tk.Label(main_frame, text="♔ BEAUTIFUL CHESS ♛", 
-                              font=("Georgia", 24, "bold"), 
-                              fg='#ecf0f1', bg='#2c3e50')
+                            font=("Georgia", 24, "bold"), 
+                            fg='#ecf0f1', bg='#2c3e50')
         title_label.pack(pady=(0, 10))
         
         # Game info frame
@@ -65,16 +65,16 @@ class BeautifulChessGame:
         
         # Current turn indicator
         self.turn_label = tk.Label(info_frame, text="White's Turn", 
-                                  font=("Arial", 16, "bold"), 
-                                  fg='#ecf0f1', bg='#34495e', 
-                                  padx=20, pady=5, relief='ridge', bd=2)
+                                font=("Arial", 16, "bold"), 
+                                fg='#ecf0f1', bg='#34495e', 
+                                padx=20, pady=5, relief='ridge', bd=2)
         self.turn_label.pack(side=tk.LEFT, padx=(0, 10))
         
         # Castling rights indicator
         self.castling_label = tk.Label(info_frame, text="Castling: K Q k q", 
-                                      font=("Arial", 12, "bold"), 
-                                      fg='#ecf0f1', bg='#7f8c8d', 
-                                      padx=10, pady=5, relief='ridge', bd=1)
+                                    font=("Arial", 12, "bold"), 
+                                    fg='#ecf0f1', bg='#7f8c8d', 
+                                    padx=10, pady=5, relief='ridge', bd=1)
         self.castling_label.pack(side=tk.LEFT, padx=(0, 10))
         
         # Game controls
@@ -82,43 +82,85 @@ class BeautifulChessGame:
         controls_frame.pack(side=tk.RIGHT)
         
         self.new_game_btn = tk.Button(controls_frame, text="New Game", 
-                                     font=("Arial", 12, "bold"),
-                                     bg='#27ae60', fg='white', 
-                                     activebackground='#229954',
-                                     relief='flat', padx=15, pady=5,
-                                     command=self.new_game)
+                                    font=("Arial", 12, "bold"),
+                                    bg='#27ae60', fg='white', 
+                                    activebackground='#229954',
+                                    relief='flat', padx=15, pady=5,
+                                    command=self.new_game)
         self.new_game_btn.pack(side=tk.LEFT, padx=5)
         
         self.undo_btn = tk.Button(controls_frame, text="Undo", 
-                                 font=("Arial", 12, "bold"),
-                                 bg='#e74c3c', fg='white', 
-                                 activebackground='#c0392b',
-                                 relief='flat', padx=15, pady=5,
-                                 command=self.undo_move)
+                                font=("Arial", 12, "bold"),
+                                bg='#e74c3c', fg='white', 
+                                activebackground='#c0392b',
+                                relief='flat', padx=15, pady=5,
+                                command=self.undo_move)
         self.undo_btn.pack(side=tk.LEFT, padx=5)
         
+        # Content frame - contains board and move history side by side
+        content_frame = tk.Frame(main_frame, bg='#2c3e50')
+        content_frame.pack(pady=10)
+        
         # Board frame with shadow effect
-        board_container = tk.Frame(main_frame, bg='#34495e', relief='raised', bd=3)
-        board_container.pack(pady=10)
+        board_container = tk.Frame(content_frame, bg='#34495e', relief='raised', bd=3)
+        board_container.pack(side=tk.LEFT, padx=(0, 20))
         
         # Chess board canvas
         self.canvas = tk.Canvas(board_container, width=self.board_size, height=self.board_size, 
-                               highlightthickness=0, bd=0)
+                            highlightthickness=0, bd=0)
         self.canvas.pack(padx=5, pady=5)
         self.canvas.bind("<Button-1>", self.on_click)
         self.canvas.bind("<Motion>", self.on_hover)
+        self.canvas.bind("<Double-Button-1>", self.on_double_click)
+        
+        # Move history panel
+        history_frame = tk.Frame(content_frame, bg='#34495e', relief='raised', bd=3)
+        history_frame.pack(side=tk.RIGHT, fill='both')
+        
+        # Move history title
+        history_title = tk.Label(history_frame, text="Move History", 
+                                font=("Arial", 16, "bold"), 
+                                fg='#ecf0f1', bg='#34495e')
+        history_title.pack(pady=(10, 5))
+        
+        # Move history listbox with scrollbar
+        history_container = tk.Frame(history_frame, bg='#34495e')
+        history_container.pack(padx=10, pady=(5, 10), fill='both', expand=True)
+        
+        # Scrollbar
+        scrollbar = tk.Scrollbar(history_container, bg='#7f8c8d', troughcolor='#34495e')
+        scrollbar.pack(side=tk.RIGHT, fill='y')
+        
+        # Move history listbox
+        self.move_history_listbox = tk.Listbox(history_container, 
+                                            font=("Courier", 10),
+                                            bg='#ecf0f1', fg='#2c3e50',
+                                            selectbackground='#3498db',
+                                            selectforeground='white',
+                                            borderwidth=0,
+                                            highlightthickness=0,
+                                            width=25, height=25,
+                                            yscrollcommand=scrollbar.set)
+        self.move_history_listbox.pack(side=tk.LEFT, fill='both', expand=True)
+        scrollbar.config(command=self.move_history_listbox.yview)
+        
+        # Clear history button
+        clear_history_btn = tk.Button(history_frame, text="Clear History", 
+                                    font=("Arial", 10, "bold"),
+                                    bg='#95a5a6', fg='white', 
+                                    activebackground='#7f8c8d',
+                                    relief='flat', padx=10, pady=3,
+                                    command=self.clear_move_history)
+        clear_history_btn.pack(pady=(0, 10))
         
         # Status bar
         status_frame = tk.Frame(main_frame, bg='#2c3e50')
         status_frame.pack(pady=(10, 0), fill='x')
         
         self.status_label = tk.Label(status_frame, text="Ready to play - Double-click king for castling", 
-                                   font=("Arial", 11), 
-                                   fg='#bdc3c7', bg='#2c3e50')
+                                font=("Arial", 11), 
+                                fg='#bdc3c7', bg='#2c3e50')
         self.status_label.pack()
-        
-        # Add double-click binding for castling
-        self.canvas.bind("<Double-Button-1>", self.on_double_click)
         
         self.draw_board()
         
@@ -166,6 +208,49 @@ class BeautifulChessGame:
                 
         # Draw coordinate labels
         self.draw_coordinates()
+        
+    def add_move_to_history(self, move_notation, is_capture=False, is_check=False, is_checkmate=False, is_castle=False):
+        """Add a move to the visual move history"""
+        move_number = len(self.move_history_listbox.get(0, tk.END)) + 1
+        
+        # Format the move notation
+        if is_castle:
+            display_text = f"{move_number}. {move_notation}"
+        else:
+            capture_symbol = "x" if is_capture else ""
+            check_symbol = "#" if is_checkmate else ("+" if is_check else "")
+            display_text = f"{move_number}. {move_notation}{capture_symbol}{check_symbol}"
+        
+        # Add to listbox
+        self.move_history_listbox.insert(tk.END, display_text)
+        self.move_history_listbox.see(tk.END)  # Scroll to bottom
+
+    def clear_move_history(self):
+        """Clear the move history display"""
+        self.move_history_listbox.delete(0, tk.END)
+
+    def format_move_notation(self, piece, from_row, from_col, to_row, to_col, is_capture=False):
+        """Format a move in algebraic notation"""
+        piece_symbols = {
+            'king': 'K', 'queen': 'Q', 'rook': 'R', 
+            'bishop': 'B', 'knight': 'N', 'pawn': ''
+        }
+        
+        piece_type = piece.split('_')[1]
+        piece_symbol = piece_symbols[piece_type]
+        
+        from_square = f"{chr(ord('a') + from_col)}{8-from_row}"
+        to_square = f"{chr(ord('a') + to_col)}{8-to_row}"
+        
+        capture_symbol = "x" if is_capture else ""
+        
+        if piece_type == 'pawn':
+            if is_capture:
+                return f"{chr(ord('a') + from_col)}{capture_symbol}{to_square}"
+            else:
+                return to_square
+        else:
+            return f"{piece_symbol}{capture_symbol}{to_square}"
         
     def draw_coordinates(self):
         # Files (a-h)
@@ -500,6 +585,7 @@ class BeautifulChessGame:
         self.draw_pieces()
         
         castle_notation = "O-O" if side == 'kingside' else "O-O-O"
+        self.add_move_to_history(castle_notation, is_castle=True)
         self.status_label.config(text=f"Castled {side}: {castle_notation}")
         
         # Check for check after castling
@@ -587,8 +673,17 @@ class BeautifulChessGame:
                     self.show_message("Check!", f"{self.turn.title()} king is in check!", "warning")
                     self.highlight_king_in_check()
                 
-                move_notation = f"{chr(ord('a') + start_col)}{8-start_row} → {chr(ord('a') + col)}{8-row}"
-                self.status_label.config(text=f"Last move: {move_notation}")
+                # Format and add move to history
+                is_capture = captured_piece is not None
+                move_notation = self.format_move_notation(piece, start_row, start_col, row, col, is_capture)
+                is_check = self.is_in_check(self.turn)
+                is_checkmate_val = self.is_checkmate(self.turn)
+
+                self.add_move_to_history(move_notation, is_capture, is_check, is_checkmate_val)
+
+                display_move = f"{chr(ord('a') + start_col)}{8-start_row} → {chr(ord('a') + col)}{8-row}"
+                self.status_label.config(text=f"Last move: {display_move}")
+                
         
         # Clear selection
         self.selected_piece = None
@@ -671,6 +766,7 @@ class BeautifulChessGame:
         self.update_castling_display()
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
+        self.clear_move_history()
         self.status_label.config(text="New game started!")
 
     def undo_move(self):
@@ -722,6 +818,9 @@ class BeautifulChessGame:
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
         self.draw_pieces()
+        # Remove last move from history display
+        if self.move_history_listbox.size() > 0:
+            self.move_history_listbox.delete(tk.END)
         self.status_label.config(text="Move undone")
 
     def show_message(self, title, message, msg_type):
