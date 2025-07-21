@@ -845,7 +845,7 @@ class BeautifulChessGame:
         king_row, king_col = king_pos
 
         # Check for pawn attacks
-        pawn_direction = 1 if color == 'white' else -1
+        pawn_direction = -1 if color == 'white' else 1
         for col_offset in [-1, 1]:
             check_col = king_col + col_offset
             check_row = king_row + pawn_direction
