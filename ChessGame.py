@@ -14,6 +14,7 @@ class BeautifulChessGame:
         self.selected_piece = None
         self.turn = 'white'
         self.move_history = []
+        self.redo_history = []
         self.captured_pieces = {'white': [], 'black': []}
         
         # Castling tracking - track if pieces have moved
@@ -90,12 +91,20 @@ class BeautifulChessGame:
         self.new_game_btn.pack(side=tk.LEFT, padx=5)
         
         self.undo_btn = tk.Button(controls_frame, text="Undo", 
-                                font=("Arial", 12, "bold"),
-                                bg='#e74c3c', fg='white', 
-                                activebackground='#c0392b',
-                                relief='flat', padx=15, pady=5,
-                                command=self.undo_move)
+                         font=("Arial", 12, "bold"),
+                         bg='#e74c3c', fg='white', 
+                         activebackground='#c0392b',
+                         relief='flat', padx=15, pady=5,
+                         command=self.undo_move)
         self.undo_btn.pack(side=tk.LEFT, padx=5)
+
+        self.redo_btn = tk.Button(controls_frame, text="Redo", 
+                                font=("Arial", 12, "bold"),
+                                bg='#f39c12', fg='white', 
+                                activebackground='#e67e22',
+                                relief='flat', padx=15, pady=5,
+                                command=self.redo_move)
+        self.redo_btn.pack(side=tk.LEFT, padx=5)
         
         # Content frame - contains board and move history side by side
         content_frame = tk.Frame(main_frame, bg='#2c3e50')
@@ -572,6 +581,7 @@ class BeautifulChessGame:
         
         # Add to move history
         self.move_history.append(move)
+        self.redo_history.clear()  # Add this line - clear redo history on new move
         
         # Switch turns
         self.turn = 'black' if self.turn == 'white' else 'white'
@@ -651,6 +661,7 @@ class BeautifulChessGame:
                 
                 # Add to move history
                 self.move_history.append(move)
+                self.redo_history.clear()  # Add this line - clear redo history on new move
                 
                 # Handle captured pieces
                 if captured_piece:
@@ -745,6 +756,7 @@ class BeautifulChessGame:
         self.selected_piece = None
         self.turn = 'white'
         self.move_history = []
+        self.redo_history = []
         self.captured_pieces = {'white': [], 'black': []}
         
         # Reset castling rights
@@ -775,6 +787,7 @@ class BeautifulChessGame:
             return
             
         last_move = self.move_history.pop()
+        self.redo_history.append(last_move)  # Store for redo
         
         if last_move['type'] == 'castle':
             # Undo castling
@@ -793,7 +806,10 @@ class BeautifulChessGame:
             self.board[rook_to[0]][rook_to[1]] = None
             
             # Restore castling rights
-            self.castling_rights = last_move['castling_rights_before']
+            self.castling_rights = last_move['castling_rights_before'].copy()
+            for color in self.castling_rights:
+                for side in self.castling_rights[color]:
+                    self.castling_rights[color][side] = last_move['castling_rights_before'][color][side]
             
         else:
             # Undo normal move
@@ -804,11 +820,16 @@ class BeautifulChessGame:
             self.board[to_row][to_col] = last_move['captured']
             
             # Restore castling rights
-            self.castling_rights = last_move['castling_rights_before']
+            self.castling_rights = last_move['castling_rights_before'].copy()
+            for color in self.castling_rights:
+                for side in self.castling_rights[color]:
+                    self.castling_rights[color][side] = last_move['castling_rights_before'][color][side]
             
             # Remove captured piece from collection
             if last_move['captured']:
-                self.captured_pieces[last_move['turn']].remove(last_move['captured'])
+                if last_move['captured'] in self.captured_pieces[last_move['turn']]:
+                    self.captured_pieces[last_move['turn']].remove(last_move['captured'])
+        
         
         # Restore turn
         self.turn = last_move['turn']
@@ -818,11 +839,107 @@ class BeautifulChessGame:
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
         self.draw_pieces()
+        
         # Remove last move from history display
         if self.move_history_listbox.size() > 0:
             self.move_history_listbox.delete(tk.END)
+        
         self.status_label.config(text="Move undone")
-
+    def redo_move(self):
+        if not self.redo_history:
+            self.show_message("Cannot Redo", "No moves to redo!", "warning")
+            return
+            
+        move_to_redo = self.redo_history.pop()
+        
+        if move_to_redo['type'] == 'castle':
+            # Redo castling
+            king_from = move_to_redo['king_from']
+            king_to = move_to_redo['king_to']
+            rook_from = move_to_redo['rook_from']
+            rook_to = move_to_redo['rook_to']
+            
+            # Move pieces
+            king_piece = self.board[king_from[0]][king_from[1]]
+            rook_piece = self.board[rook_from[0]][rook_from[1]]
+            
+            self.board[king_from[0]][king_from[1]] = None
+            self.board[rook_from[0]][rook_from[1]] = None
+            self.board[king_to[0]][king_to[1]] = king_piece
+            self.board[rook_to[0]][rook_to[1]] = rook_piece
+            
+            # Update castling rights
+            color = move_to_redo['color']
+            self.castling_rights[color]['kingside'] = False
+            self.castling_rights[color]['queenside'] = False
+            self.pieces_moved[f'{color}_king'] = True
+            self.pieces_moved[f'{color}_rook_kingside'] = True
+            self.pieces_moved[f'{color}_rook_queenside'] = True
+            
+            # Add castle notation to history
+            castle_notation = "O-O" if move_to_redo['side'] == 'kingside' else "O-O-O"
+            self.add_move_to_history(castle_notation, is_castle=True)
+            
+        else:
+            # Redo normal move
+            from_row, from_col = move_to_redo['from']
+            to_row, to_col = move_to_redo['to']
+            piece = move_to_redo['piece']
+            captured_piece = move_to_redo['captured']
+            
+            # Make the move
+            self.board[from_row][from_col] = None
+            self.board[to_row][to_col] = piece
+            
+            # Update castling rights based on the move
+            self.update_castling_rights_after_move(piece, from_row, from_col, to_row, to_col)
+            
+            # Handle captured pieces
+            if captured_piece:
+                self.captured_pieces[move_to_redo['turn']].append(captured_piece)
+            
+            # Check for pawn promotion (simplified - assumes queen promotion)
+            if piece.endswith('pawn') and (to_row == 0 or to_row == 7):
+                piece_color = piece.split('_')[0]
+                self.board[to_row][to_col] = f'{piece_color}_queen'
+            
+            # Add move to history display
+            is_capture = captured_piece is not None
+            move_notation = self.format_move_notation(piece, from_row, from_col, to_row, to_col, is_capture)
+            
+            # Check if this puts opponent in check/checkmate after switching turns
+            next_turn = 'black' if move_to_redo['turn'] == 'white' else 'white'
+            temp_turn = self.turn
+            self.turn = next_turn
+            is_check = self.is_in_check(self.turn)
+            is_checkmate_val = self.is_checkmate(self.turn)
+            self.turn = temp_turn
+            
+            self.add_move_to_history(move_notation, is_capture, is_check, is_checkmate_val)
+        
+        # Add move back to move history
+        self.move_history.append(move_to_redo)
+        
+        # Switch turns
+        self.turn = 'black' if self.turn == 'white' else 'white'
+        self.update_turn_display()
+        self.update_castling_display()
+        
+        self.canvas.delete("highlight")
+        self.canvas.delete("valid_move")
+        self.draw_pieces()
+        
+        # Check for check after redo
+        if self.is_in_check(self.turn):
+            if self.is_checkmate(self.turn):
+                winner = 'Black' if self.turn == 'white' else 'White'
+                self.show_message("Checkmate!", f"{winner} wins by checkmate!", "info")
+            else:
+                self.show_message("Check!", f"{self.turn.title()} king is in check!", "warning")
+                self.highlight_king_in_check()
+        
+        self.status_label.config(text="Move redone")
+    
     def show_message(self, title, message, msg_type):
         if msg_type == "error":
             messagebox.showerror(title, message)
