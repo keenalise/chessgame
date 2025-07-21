@@ -16,6 +16,20 @@ class BeautifulChessGame:
         self.move_history = []
         self.captured_pieces = {'white': [], 'black': []}
         
+        # Castling tracking - track if pieces have moved
+        self.castling_rights = {
+            'white': {'kingside': True, 'queenside': True},
+            'black': {'kingside': True, 'queenside': True}
+        }
+        self.pieces_moved = {
+            'white_king': False,
+            'black_king': False,
+            'white_rook_kingside': False,   # h1 rook
+            'white_rook_queenside': False,  # a1 rook
+            'black_rook_kingside': False,   # h8 rook
+            'black_rook_queenside': False   # a8 rook
+        }
+        
         # Visual properties
         self.board_size = 640
         self.square_size = self.board_size // 8
@@ -25,6 +39,7 @@ class BeautifulChessGame:
         self.select_color = '#ff6b6b'
         self.valid_move_color = '#74b9ff'
         self.check_color = '#ff4757'
+        self.castle_color = '#9b59b6'  # Special color for castling moves
         
         # Animation properties
         self.animation_speed = 10
@@ -54,6 +69,13 @@ class BeautifulChessGame:
                                   fg='#ecf0f1', bg='#34495e', 
                                   padx=20, pady=5, relief='ridge', bd=2)
         self.turn_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Castling rights indicator
+        self.castling_label = tk.Label(info_frame, text="Castling: K Q k q", 
+                                      font=("Arial", 12, "bold"), 
+                                      fg='#ecf0f1', bg='#7f8c8d', 
+                                      padx=10, pady=5, relief='ridge', bd=1)
+        self.castling_label.pack(side=tk.LEFT, padx=(0, 10))
         
         # Game controls
         controls_frame = tk.Frame(info_frame, bg='#2c3e50')
@@ -90,12 +112,34 @@ class BeautifulChessGame:
         status_frame = tk.Frame(main_frame, bg='#2c3e50')
         status_frame.pack(pady=(10, 0), fill='x')
         
-        self.status_label = tk.Label(status_frame, text="Ready to play", 
+        self.status_label = tk.Label(status_frame, text="Ready to play - Double-click king for castling", 
                                    font=("Arial", 11), 
                                    fg='#bdc3c7', bg='#2c3e50')
         self.status_label.pack()
         
+        # Add double-click binding for castling
+        self.canvas.bind("<Double-Button-1>", self.on_double_click)
+        
         self.draw_board()
+        
+    def update_castling_display(self):
+        """Update the castling rights display"""
+        rights = []
+        if self.castling_rights['white']['kingside']:
+            rights.append('K')
+        if self.castling_rights['white']['queenside']:
+            rights.append('Q')
+        if self.castling_rights['black']['kingside']:
+            rights.append('k')
+        if self.castling_rights['black']['queenside']:
+            rights.append('q')
+        
+        if rights:
+            rights_text = f"Castling: {' '.join(rights)}"
+        else:
+            rights_text = "Castling: None"
+            
+        self.castling_label.config(text=rights_text)
         
     def draw_board(self):
         self.canvas.delete("all")
@@ -161,6 +205,7 @@ class BeautifulChessGame:
             self.board[7][col] = f'white_{piece}'
         
         self.draw_pieces()
+        self.update_castling_display()
 
     def draw_pieces(self):
         self.canvas.delete("piece")
@@ -218,6 +263,30 @@ class BeautifulChessGame:
                         # Normal move indicator
                         self.canvas.create_oval(x-10, y-10, x+10, y+10, 
                                               fill=self.valid_move_color, outline='', tags="valid_move")
+        
+        # Show castling moves for king
+        if piece.endswith('king'):
+            self.show_castling_moves(start_row, start_col)
+
+    def show_castling_moves(self, king_row, king_col):
+        """Show available castling moves for the king"""
+        color = self.turn
+        
+        # Check kingside castling
+        if self.can_castle(color, 'kingside'):
+            target_col = 6  # King goes to g-file
+            x, y = target_col * self.square_size + self.square_size // 2, king_row * self.square_size + self.square_size // 2
+            self.canvas.create_rectangle(x-30, y-30, x+30, y+30, 
+                                       outline=self.castle_color, width=3, tags="valid_move")
+            self.canvas.create_text(x, y, text="♜", font=("Arial", 20), fill=self.castle_color, tags="valid_move")
+        
+        # Check queenside castling
+        if self.can_castle(color, 'queenside'):
+            target_col = 2  # King goes to c-file
+            x, y = target_col * self.square_size + self.square_size // 2, king_row * self.square_size + self.square_size // 2
+            self.canvas.create_rectangle(x-30, y-30, x+30, y+30, 
+                                       outline=self.castle_color, width=3, tags="valid_move")
+            self.canvas.create_text(x, y, text="♜", font=("Arial", 20), fill=self.castle_color, tags="valid_move")
 
     def on_hover(self, event):
         if self.animating:
@@ -245,6 +314,199 @@ class BeautifulChessGame:
         else:
             self.select_piece(row, col)
 
+    def on_double_click(self, event):
+        """Handle double-click for castling"""
+        if self.animating:
+            return
+            
+        col, row = event.x // self.square_size, event.y // self.square_size
+        if not (0 <= row < 8 and 0 <= col < 8):
+            return
+            
+        piece = self.board[row][col]
+        if piece == f'{self.turn}_king':
+            self.show_castling_dialog(row, col)
+
+    def show_castling_dialog(self, king_row, king_col):
+        """Show a dialog for castling options"""
+        color = self.turn
+        available_castles = []
+        
+        if self.can_castle(color, 'kingside'):
+            available_castles.append(('Kingside (O-O)', 'kingside'))
+        if self.can_castle(color, 'queenside'):
+            available_castles.append(('Queenside (O-O-O)', 'queenside'))
+            
+        if not available_castles:
+            self.show_message("Cannot Castle", "No castling moves available!", "info")
+            return
+            
+        # Create castling dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Castle")
+        dialog.configure(bg='#2c3e50')
+        dialog.geometry("250x150")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center the dialog
+        dialog.geometry(f"+{self.root.winfo_x() + 100}+{self.root.winfo_y() + 100}")
+        
+        tk.Label(dialog, text="Choose castling side:", 
+                font=("Arial", 14, "bold"), fg='white', bg='#2c3e50').pack(pady=20)
+        
+        choice = {'castle': None}
+        
+        def select_castle(castle_type):
+            choice['castle'] = castle_type
+            dialog.destroy()
+        
+        button_frame = tk.Frame(dialog, bg='#2c3e50')
+        button_frame.pack(pady=10)
+        
+        for text, castle_type in available_castles:
+            btn = tk.Button(button_frame, text=text, font=("Arial", 11), 
+                           bg='#9b59b6', fg='white', activebackground='#8e44ad',
+                           command=lambda ct=castle_type: select_castle(ct),
+                           relief='flat', padx=20, pady=8)
+            btn.pack(pady=5)
+        
+        cancel_btn = tk.Button(button_frame, text="Cancel", font=("Arial", 11), 
+                              bg='#95a5a6', fg='white', activebackground='#7f8c8d',
+                              command=dialog.destroy,
+                              relief='flat', padx=20, pady=8)
+        cancel_btn.pack(pady=5)
+        
+        self.root.wait_window(dialog)
+        
+        if choice['castle']:
+            self.perform_castle(color, choice['castle'])
+
+    def can_castle(self, color, side):
+        """Check if castling is possible"""
+        # Check if we still have castling rights
+        if not self.castling_rights[color][side]:
+            return False
+        
+        # Check if king is in check
+        if self.is_in_check(color):
+            return False
+        
+        king_row = 7 if color == 'white' else 0
+        king_col = 4
+        
+        if side == 'kingside':
+            # Check if squares between king and rook are empty
+            for col in [5, 6]:
+                if self.board[king_row][col] is not None:
+                    return False
+            
+            # Check if king would pass through or end in check
+            for col in [5, 6]:
+                if self.would_be_in_check_after_move(king_row, king_col, king_row, col, color):
+                    return False
+                    
+        else:  # queenside
+            # Check if squares between king and rook are empty
+            for col in [1, 2, 3]:
+                if self.board[king_row][col] is not None:
+                    return False
+            
+            # Check if king would pass through or end in check
+            for col in [2, 3]:
+                if self.would_be_in_check_after_move(king_row, king_col, king_row, col, color):
+                    return False
+        
+        return True
+
+    def would_be_in_check_after_move(self, from_row, from_col, to_row, to_col, color):
+        """Check if king would be in check after a move"""
+        # Make temporary move
+        original_piece = self.board[to_row][to_col]
+        moving_piece = self.board[from_row][from_col]
+        
+        self.board[to_row][to_col] = moving_piece
+        self.board[from_row][from_col] = None
+        
+        in_check = self.is_in_check(color)
+        
+        # Restore board
+        self.board[from_row][from_col] = moving_piece
+        self.board[to_row][to_col] = original_piece
+        
+        return in_check
+
+    def perform_castle(self, color, side):
+        """Perform the castling move"""
+        king_row = 7 if color == 'white' else 0
+        king_col = 4
+        
+        if side == 'kingside':
+            # Move king to g-file, rook to f-file
+            new_king_col = 6
+            rook_col = 7
+            new_rook_col = 5
+        else:  # queenside
+            # Move king to c-file, rook to d-file
+            new_king_col = 2
+            rook_col = 0
+            new_rook_col = 3
+        
+        # Store move for undo functionality
+        move = {
+            'type': 'castle',
+            'color': color,
+            'side': side,
+            'king_from': (king_row, king_col),
+            'king_to': (king_row, new_king_col),
+            'rook_from': (king_row, rook_col),
+            'rook_to': (king_row, new_rook_col),
+            'turn': self.turn,
+            'castling_rights_before': {
+                'white': self.castling_rights['white'].copy(),
+                'black': self.castling_rights['black'].copy()
+            }
+        }
+        
+        # Move pieces
+        king_piece = self.board[king_row][king_col]
+        rook_piece = self.board[king_row][rook_col]
+        
+        self.board[king_row][king_col] = None
+        self.board[king_row][rook_col] = None
+        self.board[king_row][new_king_col] = king_piece
+        self.board[king_row][new_rook_col] = rook_piece
+        
+        # Update castling rights and piece tracking
+        self.castling_rights[color]['kingside'] = False
+        self.castling_rights[color]['queenside'] = False
+        self.pieces_moved[f'{color}_king'] = True
+        self.pieces_moved[f'{color}_rook_kingside'] = True
+        self.pieces_moved[f'{color}_rook_queenside'] = True
+        
+        # Add to move history
+        self.move_history.append(move)
+        
+        # Switch turns
+        self.turn = 'black' if self.turn == 'white' else 'white'
+        self.update_turn_display()
+        self.update_castling_display()
+        
+        # Clear selection and redraw
+        self.selected_piece = None
+        self.canvas.delete("highlight")
+        self.canvas.delete("valid_move")
+        self.draw_pieces()
+        
+        castle_notation = "O-O" if side == 'kingside' else "O-O-O"
+        self.status_label.config(text=f"Castled {side}: {castle_notation}")
+        
+        # Check for check after castling
+        if self.is_in_check(self.turn):
+            self.show_message("Check!", f"{self.turn.title()} king is in check!", "warning")
+            self.highlight_king_in_check()
+
     def select_piece(self, row, col):
         piece = self.board[row][col]
         if piece and piece.startswith(self.turn):
@@ -255,21 +517,36 @@ class BeautifulChessGame:
             self.show_valid_moves(row, col)
             
             piece_name = piece.replace('_', ' ').title()
-            self.status_label.config(text=f"Selected: {piece_name}")
+            if piece.endswith('king'):
+                self.status_label.config(text=f"Selected: {piece_name} (Double-click to castle)")
+            else:
+                self.status_label.config(text=f"Selected: {piece_name}")
 
     def move_piece(self, row, col):
         start_row, start_col = self.selected_piece
         piece = self.board[start_row][start_col]
         
+        # Check if this is a castling move
+        if piece.endswith('king') and abs(start_col - col) == 2 and start_row == row:
+            side = 'kingside' if col > start_col else 'queenside'
+            if self.can_castle(self.turn, side):
+                self.perform_castle(self.turn, side)
+                return
+        
         if self.is_valid_move(start_row, start_col, row, col, piece):
             # Store move for undo functionality
             captured_piece = self.board[row][col]
             move = {
+                'type': 'normal',
                 'from': (start_row, start_col),
                 'to': (row, col),
                 'piece': piece,
                 'captured': captured_piece,
-                'turn': self.turn
+                'turn': self.turn,
+                'castling_rights_before': {
+                    'white': self.castling_rights['white'].copy(),
+                    'black': self.castling_rights['black'].copy()
+                }
             }
             
             # Make the move
@@ -283,7 +560,10 @@ class BeautifulChessGame:
                 self.board[row][col] = captured_piece
                 self.show_message("Invalid Move", "You cannot leave your king in check!", "error")
             else:
-                # Valid move - add to history
+                # Valid move - update castling rights
+                self.update_castling_rights_after_move(piece, start_row, start_col, row, col)
+                
+                # Add to move history
                 self.move_history.append(move)
                 
                 # Handle captured pieces
@@ -297,6 +577,7 @@ class BeautifulChessGame:
                 # Switch turns
                 self.turn = 'black' if self.turn == 'white' else 'white'
                 self.update_turn_display()
+                self.update_castling_display()
                 
                 # Check game end conditions
                 if self.is_checkmate(self.turn):
@@ -314,6 +595,44 @@ class BeautifulChessGame:
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
         self.draw_pieces()
+
+    def update_castling_rights_after_move(self, piece, from_row, from_col, to_row, to_col):
+        """Update castling rights after a piece moves"""
+        # King moves - lose all castling rights for that color
+        if piece.endswith('king'):
+            color = piece.split('_')[0]
+            self.castling_rights[color]['kingside'] = False
+            self.castling_rights[color]['queenside'] = False
+            self.pieces_moved[f'{color}_king'] = True
+        
+        # Rook moves - lose castling rights for that side
+        elif piece.endswith('rook'):
+            color = piece.split('_')[0]
+            if color == 'white':
+                if from_row == 7 and from_col == 0:  # a1 rook (queenside)
+                    self.castling_rights[color]['queenside'] = False
+                    self.pieces_moved[f'{color}_rook_queenside'] = True
+                elif from_row == 7 and from_col == 7:  # h1 rook (kingside)
+                    self.castling_rights[color]['kingside'] = False
+                    self.pieces_moved[f'{color}_rook_kingside'] = True
+            else:  # black
+                if from_row == 0 and from_col == 0:  # a8 rook (queenside)
+                    self.castling_rights[color]['queenside'] = False
+                    self.pieces_moved[f'{color}_rook_queenside'] = True
+                elif from_row == 0 and from_col == 7:  # h8 rook (kingside)
+                    self.castling_rights[color]['kingside'] = False
+                    self.pieces_moved[f'{color}_rook_kingside'] = True
+        
+        # Rook captured - opponent loses castling rights for that side
+        captured_square = (to_row, to_col)
+        if captured_square == (0, 0):  # a8 - black queenside rook
+            self.castling_rights['black']['queenside'] = False
+        elif captured_square == (0, 7):  # h8 - black kingside rook
+            self.castling_rights['black']['kingside'] = False
+        elif captured_square == (7, 0):  # a1 - white queenside rook
+            self.castling_rights['white']['queenside'] = False
+        elif captured_square == (7, 7):  # h1 - white kingside rook
+            self.castling_rights['white']['kingside'] = False
 
     def highlight_king_in_check(self):
         king_pos = self.find_king(self.turn)
@@ -333,8 +652,23 @@ class BeautifulChessGame:
         self.move_history = []
         self.captured_pieces = {'white': [], 'black': []}
         
+        # Reset castling rights
+        self.castling_rights = {
+            'white': {'kingside': True, 'queenside': True},
+            'black': {'kingside': True, 'queenside': True}
+        }
+        self.pieces_moved = {
+            'white_king': False,
+            'black_king': False,
+            'white_rook_kingside': False,
+            'white_rook_queenside': False,
+            'black_rook_kingside': False,
+            'black_rook_queenside': False
+        }
+        
         self.setup_pieces()
         self.update_turn_display()
+        self.update_castling_display()
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
         self.status_label.config(text="New game started!")
@@ -346,20 +680,44 @@ class BeautifulChessGame:
             
         last_move = self.move_history.pop()
         
-        # Restore board position
-        from_row, from_col = last_move['from']
-        to_row, to_col = last_move['to']
-        
-        self.board[from_row][from_col] = last_move['piece']
-        self.board[to_row][to_col] = last_move['captured']
+        if last_move['type'] == 'castle':
+            # Undo castling
+            king_from = last_move['king_from']
+            king_to = last_move['king_to']
+            rook_from = last_move['rook_from']
+            rook_to = last_move['rook_to']
+            
+            # Move pieces back
+            king_piece = self.board[king_to[0]][king_to[1]]
+            rook_piece = self.board[rook_to[0]][rook_to[1]]
+            
+            self.board[king_from[0]][king_from[1]] = king_piece
+            self.board[rook_from[0]][rook_from[1]] = rook_piece
+            self.board[king_to[0]][king_to[1]] = None
+            self.board[rook_to[0]][rook_to[1]] = None
+            
+            # Restore castling rights
+            self.castling_rights = last_move['castling_rights_before']
+            
+        else:
+            # Undo normal move
+            from_row, from_col = last_move['from']
+            to_row, to_col = last_move['to']
+            
+            self.board[from_row][from_col] = last_move['piece']
+            self.board[to_row][to_col] = last_move['captured']
+            
+            # Restore castling rights
+            self.castling_rights = last_move['castling_rights_before']
+            
+            # Remove captured piece from collection
+            if last_move['captured']:
+                self.captured_pieces[last_move['turn']].remove(last_move['captured'])
         
         # Restore turn
         self.turn = last_move['turn']
         self.update_turn_display()
-        
-        # Remove captured piece from collection
-        if last_move['captured']:
-            self.captured_pieces[self.turn].remove(last_move['captured'])
+        self.update_castling_display()
         
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
@@ -424,7 +782,7 @@ class BeautifulChessGame:
         rgb = tuple(int(c * (1 - factor)) for c in rgb)
         return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
 
-    # Keep all the original game logic methods
+    # Enhanced move validation to include castling
     def is_valid_move(self, start_row, start_col, end_row, end_col, piece):
         if piece is None:
             return False
@@ -432,6 +790,11 @@ class BeautifulChessGame:
         destination_piece = self.board[end_row][end_col]
         if destination_piece and destination_piece.startswith(self.turn):
             return False
+
+        # Special handling for king castling moves
+        if piece.endswith('king') and abs(start_col - end_col) == 2 and start_row == end_row:
+            side = 'kingside' if end_col > start_col else 'queenside'
+            return self.can_castle(self.turn, side)
 
         if piece.endswith('pawn'):
             direction = -1 if piece.startswith('white') else 1
