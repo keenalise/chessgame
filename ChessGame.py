@@ -15,6 +15,9 @@ class BeautifulChessGame:
         self.turn = 'white'
         self.move_history = []
         self.redo_history = []
+        self.en_passant_target = None  # Stores the position where en passant capture is possible
+
+        
         self.captured_pieces = {'white': [], 'black': []}
         
         # Castling tracking - track if pieces have moved
@@ -48,6 +51,122 @@ class BeautifulChessGame:
         
         self.setup_ui()
         self.setup_pieces()
+        
+    def redo_move(self):
+        if not self.redo_history:
+            self.show_message("Cannot Redo", "No moves to redo!", "warning")
+            return
+            
+        move_to_redo = self.redo_history.pop()
+        
+        if move_to_redo['type'] == 'castle':
+            # Redo castling
+            king_from = move_to_redo['king_from']
+            king_to = move_to_redo['king_to']
+            rook_from = move_to_redo['rook_from']
+            rook_to = move_to_redo['rook_to']
+            
+            # Move pieces
+            king_piece = self.board[king_from[0]][king_from[1]]
+            rook_piece = self.board[rook_from[0]][rook_from[1]]
+            
+            self.board[king_from[0]][king_from[1]] = None
+            self.board[rook_from[0]][rook_from[1]] = None
+            self.board[king_to[0]][king_to[1]] = king_piece
+            self.board[rook_to[0]][rook_to[1]] = rook_piece
+            
+            # Update castling rights
+            color = move_to_redo['color']
+            self.castling_rights[color]['kingside'] = False
+            self.castling_rights[color]['queenside'] = False
+            self.pieces_moved[f'{color}_king'] = True
+            self.pieces_moved[f'{color}_rook_kingside'] = True
+            self.pieces_moved[f'{color}_rook_queenside'] = True
+            
+            # Add castle notation to history
+            castle_notation = "O-O" if move_to_redo['side'] == 'kingside' else "O-O-O"
+            self.add_move_to_history(castle_notation, is_castle=True)
+            
+        else:
+            # Redo normal move
+            from_row, from_col = move_to_redo['from']
+            to_row, to_col = move_to_redo['to']
+            piece = move_to_redo['piece']
+            captured_piece = move_to_redo['captured']
+            
+            # Make the move
+            self.board[from_row][from_col] = None
+            self.board[to_row][to_col] = piece
+            
+            # Handle en passant capture during redo
+            if move_to_redo.get('is_en_passant', False):
+                en_passant_pos = move_to_redo['en_passant_captured_pos']
+                # Remove the captured pawn (that was restored during undo)
+                self.board[en_passant_pos[0]][en_passant_pos[1]] = None
+                # Add the captured piece to the captured pieces list
+                if move_to_redo['en_passant_captured_piece']:
+                    self.captured_pieces[move_to_redo['turn']].append(move_to_redo['en_passant_captured_piece'])
+            
+            # Update castling rights based on the move
+            self.update_castling_rights_after_move(piece, from_row, from_col, to_row, to_col)
+            
+            # Restore en passant target from the move
+            # Set en passant target if this was a pawn double move
+            if piece.endswith('pawn') and abs(from_row - to_row) == 2:
+                en_passant_row = (from_row + to_row) // 2
+                self.en_passant_target = (en_passant_row, to_col)
+            else:
+                self.en_passant_target = None
+            
+            # Handle regular captured pieces
+            if captured_piece:
+                self.captured_pieces[move_to_redo['turn']].append(captured_piece)
+            
+            # Check for pawn promotion (simplified - assumes queen promotion)
+            if piece.endswith('pawn') and (to_row == 0 or to_row == 7):
+                piece_color = piece.split('_')[0]
+                self.board[to_row][to_col] = f'{piece_color}_queen'
+            
+            # Add move to history display
+            is_capture = captured_piece is not None or move_to_redo.get('is_en_passant', False)
+            move_notation = self.format_move_notation(piece, from_row, from_col, to_row, to_col, is_capture)
+            
+            # Add en passant notation if applicable
+            if move_to_redo.get('is_en_passant', False):
+                move_notation += " e.p."
+            
+            # Check if this puts opponent in check/checkmate after switching turns
+            next_turn = 'black' if move_to_redo['turn'] == 'white' else 'white'
+            temp_turn = self.turn
+            self.turn = next_turn
+            is_check = self.is_in_check(self.turn)
+            is_checkmate_val = self.is_checkmate(self.turn)
+            self.turn = temp_turn
+            
+            self.add_move_to_history(move_notation, is_capture, is_check, is_checkmate_val)
+        
+        # Add move back to move history
+        self.move_history.append(move_to_redo)
+        
+        # Switch turns
+        self.turn = 'black' if self.turn == 'white' else 'white'
+        self.update_turn_display()
+        self.update_castling_display()
+        
+        self.canvas.delete("highlight")
+        self.canvas.delete("valid_move")
+        self.draw_pieces()
+        
+        # Check for check after redo
+        if self.is_in_check(self.turn):
+            if self.is_checkmate(self.turn):
+                winner = 'Black' if self.turn == 'white' else 'White'
+                self.show_message("Checkmate!", f"{winner} wins by checkmate!", "info")
+            else:
+                self.show_message("Check!", f"{self.turn.title()} king is in check!", "warning")
+                self.highlight_king_in_check()
+        
+        self.status_label.config(text="Move redone")
         
     def setup_ui(self):
         # Main frame with horizontal layout
@@ -361,6 +480,9 @@ class BeautifulChessGame:
         # Show castling moves for king
         if piece.endswith('king'):
             self.show_castling_moves(start_row, start_col)
+        # Show en passant moves for pawns
+        if piece.endswith('pawn'):
+            self.show_en_passant_moves(start_row, start_col)
 
     def show_castling_moves(self, king_row, king_col):
         """Show available castling moves for the king"""
@@ -617,7 +739,7 @@ class BeautifulChessGame:
                 self.status_label.config(text=f"Selected: {piece_name} (Double-click to castle)")
             else:
                 self.status_label.config(text=f"Selected: {piece_name}")
-
+    #move piece
     def move_piece(self, row, col):
         start_row, start_col = self.selected_piece
         piece = self.board[start_row][start_col]
@@ -630,6 +752,22 @@ class BeautifulChessGame:
                 return
         
         if self.is_valid_move(start_row, start_col, row, col, piece):
+            # Check for en passant capture
+            is_en_passant = (piece.endswith('pawn') and 
+                            self.en_passant_target and 
+                            (row, col) == self.en_passant_target)
+            
+            en_passant_captured_piece = None
+            en_passant_captured_pos = None
+            
+            if is_en_passant:
+                # Determine the position of the captured pawn
+                captured_pawn_row = row + (1 if piece.startswith('white') else -1)
+                en_passant_captured_piece = self.board[captured_pawn_row][col]
+                en_passant_captured_pos = (captured_pawn_row, col)
+                # Remove the captured pawn
+                self.board[captured_pawn_row][col] = None
+            
             # Store move for undo functionality
             captured_piece = self.board[row][col]
             move = {
@@ -642,7 +780,11 @@ class BeautifulChessGame:
                 'castling_rights_before': {
                     'white': self.castling_rights['white'].copy(),
                     'black': self.castling_rights['black'].copy()
-                }
+                },
+                'en_passant_target_before': self.en_passant_target,
+                'is_en_passant': is_en_passant,
+                'en_passant_captured_piece': en_passant_captured_piece,
+                'en_passant_captured_pos': en_passant_captured_pos
             }
             
             # Make the move
@@ -654,18 +796,32 @@ class BeautifulChessGame:
                 # Undo move
                 self.board[start_row][start_col] = piece
                 self.board[row][col] = captured_piece
+                # Restore en passant captured pawn if needed
+                if is_en_passant:
+                    self.board[en_passant_captured_pos[0]][en_passant_captured_pos[1]] = en_passant_captured_piece
                 self.show_message("Invalid Move", "You cannot leave your king in check!", "error")
             else:
                 # Valid move - update castling rights
                 self.update_castling_rights_after_move(piece, start_row, start_col, row, col)
                 
+                # Update en passant target
+                new_en_passant_target = None
+                if piece.endswith('pawn') and abs(start_row - row) == 2:
+                    # Pawn moved two squares, set en passant target
+                    en_passant_row = (start_row + row) // 2
+                    new_en_passant_target = (en_passant_row, col)
+                
+                self.en_passant_target = new_en_passant_target
+                
                 # Add to move history
                 self.move_history.append(move)
-                self.redo_history.clear()  # Add this line - clear redo history on new move
+                self.redo_history.clear()
                 
                 # Handle captured pieces
                 if captured_piece:
                     self.captured_pieces[self.turn].append(captured_piece)
+                if is_en_passant and en_passant_captured_piece:
+                    self.captured_pieces[self.turn].append(en_passant_captured_piece)
                 
                 # Check for pawn promotion
                 if piece.endswith('pawn') and (row == 0 or row == 7):
@@ -685,23 +841,26 @@ class BeautifulChessGame:
                     self.highlight_king_in_check()
                 
                 # Format and add move to history
-                is_capture = captured_piece is not None
+                is_capture = captured_piece is not None or is_en_passant
                 move_notation = self.format_move_notation(piece, start_row, start_col, row, col, is_capture)
+                if is_en_passant:
+                    move_notation += " e.p."
+                
                 is_check = self.is_in_check(self.turn)
                 is_checkmate_val = self.is_checkmate(self.turn)
 
                 self.add_move_to_history(move_notation, is_capture, is_check, is_checkmate_val)
 
                 display_move = f"{chr(ord('a') + start_col)}{8-start_row} → {chr(ord('a') + col)}{8-row}"
+                if is_en_passant:
+                    display_move += " (en passant)"
                 self.status_label.config(text=f"Last move: {display_move}")
-                
         
         # Clear selection
         self.selected_piece = None
         self.canvas.delete("highlight")
         self.canvas.delete("valid_move")
         self.draw_pieces()
-
     def update_castling_rights_after_move(self, piece, from_row, from_col, to_row, to_col):
         """Update castling rights after a piece moves"""
         # King moves - lose all castling rights for that color
@@ -780,17 +939,20 @@ class BeautifulChessGame:
         self.canvas.delete("valid_move")
         self.clear_move_history()
         self.status_label.config(text="New game started!")
+        
+        
 
+    #undo move
     def undo_move(self):
         if not self.move_history:
             self.show_message("Cannot Undo", "No moves to undo!", "warning")
             return
             
         last_move = self.move_history.pop()
-        self.redo_history.append(last_move)  # Store for redo
+        self.redo_history.append(last_move)
         
         if last_move['type'] == 'castle':
-            # Undo castling
+            # Undo castle move
             king_from = last_move['king_from']
             king_to = last_move['king_to']
             rook_from = last_move['rook_from']
@@ -800,16 +962,16 @@ class BeautifulChessGame:
             king_piece = self.board[king_to[0]][king_to[1]]
             rook_piece = self.board[rook_to[0]][rook_to[1]]
             
-            self.board[king_from[0]][king_from[1]] = king_piece
-            self.board[rook_from[0]][rook_from[1]] = rook_piece
             self.board[king_to[0]][king_to[1]] = None
             self.board[rook_to[0]][rook_to[1]] = None
+            self.board[king_from[0]][king_from[1]] = king_piece
+            self.board[rook_from[0]][rook_from[1]] = rook_piece
             
             # Restore castling rights
-            self.castling_rights = last_move['castling_rights_before'].copy()
-            for color in self.castling_rights:
-                for side in self.castling_rights[color]:
-                    self.castling_rights[color][side] = last_move['castling_rights_before'][color][side]
+            self.castling_rights = {
+                'white': last_move['castling_rights_before']['white'].copy(),
+                'black': last_move['castling_rights_before']['black'].copy()
+            }
             
         else:
             # Undo normal move
@@ -819,17 +981,29 @@ class BeautifulChessGame:
             self.board[from_row][from_col] = last_move['piece']
             self.board[to_row][to_col] = last_move['captured']
             
+            # Handle en passant undo
+            if last_move.get('is_en_passant', False):
+                en_passant_pos = last_move['en_passant_captured_pos']
+                en_passant_piece = last_move['en_passant_captured_piece']
+                self.board[en_passant_pos[0]][en_passant_pos[1]] = en_passant_piece
+                
+                # Remove en passant captured piece from collection
+                if en_passant_piece and en_passant_piece in self.captured_pieces[last_move['turn']]:
+                    self.captured_pieces[last_move['turn']].remove(en_passant_piece)
+            
             # Restore castling rights
-            self.castling_rights = last_move['castling_rights_before'].copy()
-            for color in self.castling_rights:
-                for side in self.castling_rights[color]:
-                    self.castling_rights[color][side] = last_move['castling_rights_before'][color][side]
+            self.castling_rights = {
+                'white': last_move['castling_rights_before']['white'].copy(),
+                'black': last_move['castling_rights_before']['black'].copy()
+            }
+            
+            # Restore en passant target
+            self.en_passant_target = last_move.get('en_passant_target_before', None)
             
             # Remove captured piece from collection
             if last_move['captured']:
                 if last_move['captured'] in self.captured_pieces[last_move['turn']]:
                     self.captured_pieces[last_move['turn']].remove(last_move['captured'])
-        
         
         # Restore turn
         self.turn = last_move['turn']
@@ -845,101 +1019,7 @@ class BeautifulChessGame:
             self.move_history_listbox.delete(tk.END)
         
         self.status_label.config(text="Move undone")
-    def redo_move(self):
-        if not self.redo_history:
-            self.show_message("Cannot Redo", "No moves to redo!", "warning")
-            return
-            
-        move_to_redo = self.redo_history.pop()
         
-        if move_to_redo['type'] == 'castle':
-            # Redo castling
-            king_from = move_to_redo['king_from']
-            king_to = move_to_redo['king_to']
-            rook_from = move_to_redo['rook_from']
-            rook_to = move_to_redo['rook_to']
-            
-            # Move pieces
-            king_piece = self.board[king_from[0]][king_from[1]]
-            rook_piece = self.board[rook_from[0]][rook_from[1]]
-            
-            self.board[king_from[0]][king_from[1]] = None
-            self.board[rook_from[0]][rook_from[1]] = None
-            self.board[king_to[0]][king_to[1]] = king_piece
-            self.board[rook_to[0]][rook_to[1]] = rook_piece
-            
-            # Update castling rights
-            color = move_to_redo['color']
-            self.castling_rights[color]['kingside'] = False
-            self.castling_rights[color]['queenside'] = False
-            self.pieces_moved[f'{color}_king'] = True
-            self.pieces_moved[f'{color}_rook_kingside'] = True
-            self.pieces_moved[f'{color}_rook_queenside'] = True
-            
-            # Add castle notation to history
-            castle_notation = "O-O" if move_to_redo['side'] == 'kingside' else "O-O-O"
-            self.add_move_to_history(castle_notation, is_castle=True)
-            
-        else:
-            # Redo normal move
-            from_row, from_col = move_to_redo['from']
-            to_row, to_col = move_to_redo['to']
-            piece = move_to_redo['piece']
-            captured_piece = move_to_redo['captured']
-            
-            # Make the move
-            self.board[from_row][from_col] = None
-            self.board[to_row][to_col] = piece
-            
-            # Update castling rights based on the move
-            self.update_castling_rights_after_move(piece, from_row, from_col, to_row, to_col)
-            
-            # Handle captured pieces
-            if captured_piece:
-                self.captured_pieces[move_to_redo['turn']].append(captured_piece)
-            
-            # Check for pawn promotion (simplified - assumes queen promotion)
-            if piece.endswith('pawn') and (to_row == 0 or to_row == 7):
-                piece_color = piece.split('_')[0]
-                self.board[to_row][to_col] = f'{piece_color}_queen'
-            
-            # Add move to history display
-            is_capture = captured_piece is not None
-            move_notation = self.format_move_notation(piece, from_row, from_col, to_row, to_col, is_capture)
-            
-            # Check if this puts opponent in check/checkmate after switching turns
-            next_turn = 'black' if move_to_redo['turn'] == 'white' else 'white'
-            temp_turn = self.turn
-            self.turn = next_turn
-            is_check = self.is_in_check(self.turn)
-            is_checkmate_val = self.is_checkmate(self.turn)
-            self.turn = temp_turn
-            
-            self.add_move_to_history(move_notation, is_capture, is_check, is_checkmate_val)
-        
-        # Add move back to move history
-        self.move_history.append(move_to_redo)
-        
-        # Switch turns
-        self.turn = 'black' if self.turn == 'white' else 'white'
-        self.update_turn_display()
-        self.update_castling_display()
-        
-        self.canvas.delete("highlight")
-        self.canvas.delete("valid_move")
-        self.draw_pieces()
-        
-        # Check for check after redo
-        if self.is_in_check(self.turn):
-            if self.is_checkmate(self.turn):
-                winner = 'Black' if self.turn == 'white' else 'White'
-                self.show_message("Checkmate!", f"{winner} wins by checkmate!", "info")
-            else:
-                self.show_message("Check!", f"{self.turn.title()} king is in check!", "warning")
-                self.highlight_king_in_check()
-        
-        self.status_label.config(text="Move redone")
-    
     def show_message(self, title, message, msg_type):
         if msg_type == "error":
             messagebox.showerror(title, message)
@@ -1014,15 +1094,25 @@ class BeautifulChessGame:
 
         if piece.endswith('pawn'):
             direction = -1 if piece.startswith('white') else 1
+            
+            # Forward moves
             if start_col == end_col and destination_piece is None:
                 if end_row == start_row + direction:
                     return True
+                # Two-square initial move
                 if (start_row == 6 and piece.startswith('white')) or (start_row == 1 and piece.startswith('black')):
                     if end_row == start_row + 2 * direction and self.board[start_row + direction][end_col] is None:
                         return True
+            
+            # Diagonal captures (normal and en passant)
             elif abs(start_col - end_col) == 1 and end_row == start_row + direction:
+                # Normal capture
                 if destination_piece and not destination_piece.startswith(self.turn):
                     return True
+                # En passant capture
+                elif self.en_passant_target and (end_row, end_col) == self.en_passant_target:
+                    return True
+                    
         elif piece.endswith('king'):
             if abs(start_row - end_row) <= 1 and abs(start_col - end_col) <= 1:
                 return True
@@ -1039,6 +1129,30 @@ class BeautifulChessGame:
             if start_row == end_row or start_col == end_col or abs(start_row - end_row) == abs(start_col - end_col):
                 return self.is_path_clear(start_row, start_col, end_row, end_col)
         return False
+    #  en passant moves 
+    def show_en_passant_moves(self, start_row, start_col):
+        """Show en passant capture moves for pawns"""
+        if not self.en_passant_target:
+            return
+            
+        piece = self.board[start_row][start_col]
+        if not piece.endswith('pawn'):
+            return
+            
+        direction = -1 if piece.startswith('white') else 1
+        target_row, target_col = self.en_passant_target
+        
+        # Check if this pawn can capture en passant
+        if (target_row == start_row + direction and 
+            abs(target_col - start_col) == 1):
+            
+            x, y = target_col * self.square_size + self.square_size // 2, target_row * self.square_size + self.square_size // 2
+            # Special indicator for en passant
+            self.canvas.create_oval(x-15, y-15, x+15, y+15, 
+                                outline='#e74c3c', width=3, tags="valid_move")
+            self.canvas.create_text(x, y, text="EP", font=("Arial", 10, "bold"), 
+                                fill='#e74c3c', tags="valid_move")
+
 
     def is_path_clear(self, start_row, start_col, end_row, end_col):
         step_row = 0 if start_row == end_row else (1 if end_row > start_row else -1)

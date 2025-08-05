@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from ChessGame import ChessGame  # Import the ChessGame class
+from ChessGame import BeautifulChessGame  # Import the ChessGame class
 from PIL import ImageTk, Image
 from database import verify_login, init_db
 
@@ -16,7 +16,7 @@ class LoginPage:
         # ========================================================================
         # ============================background image============================
         # ========================================================================
-        self.bg_frame = Image.open('images\\background1.png')
+        self.bg_frame = Image.open('D:\chessgame\chess\images\background1.png')
         photo = ImageTk.PhotoImage(self.bg_frame)
         self.bg_panel = tk.Label(self.window, image=photo)
         self.bg_panel.image = photo
@@ -29,7 +29,8 @@ class LoginPage:
         # ========================================================
         # ========================================================================
         self.txt = "WELCOME"
-        self.heading = tk.Label(self.lgn_frame, text=self.txt, font=('yu gothic ui', 25, "bold"), bg="#040405",
+        self.heading = tk.Label(self.lgn_frame, text=self.txt, 
+                                font=('yu gothic ui', 25, "bold"), bg="#040405",
                              fg='white',
                              bd=5,
                              relief=tk.FLAT)
@@ -38,7 +39,7 @@ class LoginPage:
         # ========================================================================
         # ============ Left Side Image ================================================
         # ========================================================================
-        self.side_image = Image.open('images\\vector.png')
+        self.side_image = Image.open('D:\chessgame\chess\images\vector.png')
         photo = ImageTk.PhotoImage(self.side_image)
         self.side_image_label = tk.Label(self.lgn_frame, image=photo, bg='#040405')
         self.side_image_label.image = photo
