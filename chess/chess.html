@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game - Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background elements */
+        .bg-shapes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .shape {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .shape:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            top: 20%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .shape:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            top: 60%;
+            right: 10%;
+            animation-delay: 2s;
+        }
+
+        .shape:nth-child(3) {
+            width: 60px;
+            height: 60px;
+            bottom: 20%;
+            left: 20%;
+            animation-delay: 4s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .auth-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 450px;
+            min-height: 600px;
+            padding: 40px;
+            position: relative;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .auth-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        .chess-icon {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .chess-piece {
+            font-size: 48px;
+            color: #333;
+            margin-bottom: 10px;
+            display: inline-block;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 60%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            80% { transform: translateY(-5px); }
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 38px;
+            cursor: pointer;
+            color: #666;
+            font-size: 18px;
+            user-select: none;
+            transition: color 0.3s ease;
+        }
+
+        .password-toggle:hover {
+            color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .divider {
+            text-align: center;
+            margin: 30px 0;
+            position: relative;
+            color: #666;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e1e5e9;
+        }
+
+        .divider span {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .form-footer {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .form-footer p {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .form-footer button {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+
+        .form-footer button:hover {
+            color: #764ba2;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #363;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #363;
+            font-size: 14px;
+            display: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive design */
+        @media (max-width: 480px) {
+            .auth-container {
+                width: 90%;
+                padding: 30px 20px;
+                margin: 20px;
+            }
+            
+            .title {
+                font-size: 28px;
+            }
+        }
+
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-shapes">
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+    </div>
+
+    <div class="auth-container">
+        <div class="chess-icon">
+            <div class="chess-piece"> Keen Chess♔</div>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginForm">
+            <h1 class="title">Welcome Back</h1>
+            <p class="subtitle">Sign in to continue your chess journey</p>
+
+            <div class="error-message" id="loginError"></div>
+            <div class="success-message" id="loginSuccess"></div>
+
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required>
+                    <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span class="btn-text">Sign In</span>
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>or</span>
+            </div>
+
+            <div class="form-footer">
+                <p>Don't have an account?</p>
+                <button onclick="showRegister()">Create Account</button>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="hidden">
+            <h1 class="title">Join the Game</h1>
+            <p class="subtitle">Create your account to start playing</p>
+
+            <div class="error-message" id="registerError"></div>
+            <div class="success-message" id="registerSuccess"></div>
+
+            <form id="registerFormElement">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required>
+                    <span class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" required>
+                    <span class="password-toggle" onclick="togglePassword('confirmPassword', this)">👁️</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="registerBtn">
+                    <span class="btn-text">Create Account</span>
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>or</span>
+            </div>
+
+            <div class="form-footer">
+                <p>Already have an account?</p>
+                <button onclick="showLogin()">Sign In</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Store user data in memory (simulating database)
+        let users = [];
+
+        // Toggle between login and register forms
+        function showRegister() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+            clearMessages();
+        }
+
+        function showLogin() {
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+            clearMessages();
+        }
+
+        // Toggle password visibility
+        function togglePassword(inputId, toggleBtn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        }
+
+        // Clear all messages
+        function clearMessages() {
+            document.querySelectorAll('.error-message, .success-message').forEach(msg => {
+                msg.style.display = 'none';
+            });
+        }
+
+        // Show error message
+        function showError(formType, message) {
+            clearMessages();
+            const errorDiv = document.getElementById(formType + 'Error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Show success message
+        function showSuccess(formType, message) {
+            clearMessages();
+            const successDiv = document.getElementById(formType + 'Success');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+
+        // Set button loading state
+        function setButtonLoading(buttonId, isLoading) {
+            const btn = document.getElementById(buttonId);
+            const btnText = btn.querySelector('.btn-text');
+            
+            if (isLoading) {
+                btn.disabled = true;
+                btnText.innerHTML = '<div class="loading"></div>';
+            } else {
+                btn.disabled = false;
+                btnText.textContent = buttonId === 'loginBtn' ? 'Sign In' : 'Create Account';
+            }
+        }
+
+        // Hash password (simple implementation for demo)
+        function hashPassword(password) {
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) {
+                const char = password.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            return hash.toString();
+        }
+
+        // Register form handler
+        document.getElementById('registerFormElement').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('registerUsername').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Validation
+            if (!username || !email || !password || !confirmPassword) {
+                showError('register', 'All fields are required!');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showError('register', 'Passwords do not match!');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError('register', 'Password must be at least 6 characters!');
+                return;
+            }
+
+            // Check if user already exists
+            if (users.find(user => user.username === username || user.email === email)) {
+                showError('register', 'Username or email already exists!');
+                return;
+            }
+
+            setButtonLoading('registerBtn', true);
+
+            // Simulate API call
+            setTimeout(() => {
+                // Add user to storage
+                users.push({
+                    username: username,
+                    email: email,
+                    password: hashPassword(password)
+                });
+
+                setButtonLoading('registerBtn', false);
+                showSuccess('register', 'Registration successful! You can now sign in.');
+                
+                // Clear form
+                document.getElementById('registerFormElement').reset();
+                
+                // Switch to login after 2 seconds
+                setTimeout(() => {
+                    showLogin();
+                }, 2000);
+            }, 1500);
+        });
+
+        // Login form handler
+        document.getElementById('loginFormElement').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!username || !password) {
+                showError('login', 'All fields are required!');
+                return;
+            }
+
+            setButtonLoading('loginBtn', true);
+
+            // Simulate API call
+            setTimeout(() => {
+                // Check credentials
+                const user = users.find(user => 
+                    user.username === username && user.password === hashPassword(password)
+                );
+
+                setButtonLoading('loginBtn', false);
+
+                if (user) {
+                    showSuccess('login', 'Login successful! Redirecting to game...');
+                    // Redirect to the chess game after a short delay
+                    setTimeout(() => {
+                        window.location.href = 'chessgame.html';
+                    }, 800);
+                } else {
+                    showError('login', 'Invalid username or password!');
+                }
+            }, 800);
+        });
+
+        // Add some demo users for testing
+        users.push({
+            username: 'demo',
+            email: 'demo@chess.com',
+            password: hashPassword('123456')
+        });
+
+        // Add input focus effects
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'translateY(-2px)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body>
+</html>
