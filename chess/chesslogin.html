@@ -7,101 +7,9 @@
     <link rel="stylesheet" href="chesslogin.css">
 </head>
 <body>
-    <!-- Firebase v9+ SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js';
-        import { 
-            getAuth, 
-            createUserWithEmailAndPassword, 
-            signInWithEmailAndPassword,
-            signInWithPopup,
-            GoogleAuthProvider,
-            onAuthStateChanged,
-            sendPasswordResetEmail,
-            signOut
-        } from 'https://www.gstatic.com/firebasejs/10.3.1/firebase-auth.js';
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc, 
-            getDoc, 
-            collection, 
-            query, 
-            where, 
-            getDocs,
-            updateDoc,
-            serverTimestamp
-        } from 'https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js';
-        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.3.1/firebase-analytics.js';
+    <!-- Connection Status Indicator -->
+    <div id="connectionStatus" class="connection-status connection-checking">Checking connection...</div>
 
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBBP3jjc4WKshCNVIS1dv-ANP0OnFhxmRM",
-            authDomain: "keenchess-9149f.firebaseapp.com",
-            projectId: "keenchess-9149f",
-            storageBucket: "keenchess-9149f.firebasestorage.app",
-            messagingSenderId: "483473502369",
-            appId: "1:483473502369:web:cfce007e26cc943b6980e0",
-            measurementId: "G-9978JKHEST"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const analytics = getAnalytics(app);
-        const googleProvider = new GoogleAuthProvider();
-
-        // Configure Google provider
-        googleProvider.setCustomParameters({
-            prompt: 'select_account'
-        });
-
-        // Add additional scopes if needed
-        googleProvider.addScope('profile');
-        googleProvider.addScope('email');
-
-        // Make Firebase services globally available
-        window.firebaseAuth = auth;
-        window.firebaseDb = db;
-        window.firebaseServices = {
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
-            signInWithPopup,
-            GoogleAuthProvider,
-            onAuthStateChanged,
-            sendPasswordResetEmail,
-            signOut,
-            doc,
-            setDoc,
-            getDoc,
-            collection,
-            query,
-            where,
-            getDocs,
-            updateDoc,
-            serverTimestamp,
-            googleProvider
-        };
-
-        // Check if user is already logged in
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log('User is signed in:', user);
-                // Show user info or redirect
-                window.currentUser = user;
-            } else {
-                console.log('User is signed out');
-                window.currentUser = null;
-            }
-        });
-
-        // Initialize the app once Firebase is loaded
-        window.addEventListener('load', () => {
-            window.initializeChessAuth();
-        });
-    </script>
-    
     <div class="bg-shapes">
         <div class="shape"></div>
         <div class="shape"></div>
@@ -112,19 +20,20 @@
 
     <div class="auth-container">
         <div class="chess-icon">
-            <div class="chess-piece">♔ Keen Chess</div>
+            <div class="chess-piece">♔</div>
+            <h1 class="title">Keen Chess</h1>
         </div>
 
         <div class="form-container">
             <!-- Login Form -->
             <div id="loginForm" class="form-slide">
-                <h1 class="title">Welcome Back</h1>
-                <p class="subtitle">Sign in to continue your chess journey</p>
+                <h2 class="subtitle">Welcome Back</h2>
+                <p class="form-description">Sign in to continue your chess journey</p>
 
                 <div class="error-message" id="loginError"></div>
                 <div class="success-message" id="loginSuccess"></div>
 
-                <button class="btn google-btn" id="googleSignInBtn">
+                <button class="btn google-btn" id="googleSignInBtn" type="button">
                     <svg class="google-icon" viewBox="0 0 24 24">
                         <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -142,13 +51,13 @@
                     <div class="form-group input-group">
                         <label for="loginUsername">Email or Username</label>
                         <span class="input-icon">👤</span>
-                        <input type="text" id="loginUsername" class="input-with-icon" required autocomplete="username">
+                        <input type="text" id="loginUsername" class="input-with-icon" required autocomplete="username" placeholder="Enter your email or username">
                     </div>
 
                     <div class="form-group input-group">
                         <label for="loginPassword">Password</label>
                         <span class="input-icon">🔒</span>
-                        <input type="password" id="loginPassword" class="input-with-icon" required autocomplete="current-password">
+                        <input type="password" id="loginPassword" class="input-with-icon" required autocomplete="current-password" placeholder="Enter your password">
                         <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
                     </div>
 
@@ -158,20 +67,23 @@
                 </form>
 
                 <div class="form-footer">
-                    <p>Don't have an account? <a href="#" class="form-link" onclick="showRegister()">Create Account</a></p>
-                    <p><a href="#" class="form-link" onclick="showForgotPassword()">Forgot Password?</a></p>
+                    <p>Don't have an account? <button type="button" class="form-link" onclick="showRegister()">Create Account</button></p>
+                    <p><button type="button" class="form-link" onclick="showForgotPassword()">Forgot Password?</button></p>
                 </div>
+
+                <button type="button" class="debug-toggle" onclick="toggleDebug()">Show Debug Info</button>
+                <div class="debug-info" id="debugInfo"></div>
             </div>
 
             <!-- Register Form -->
             <div id="registerForm" class="form-slide hidden">
-                <h1 class="title">Join the Game</h1>
-                <p class="subtitle">Create your account to start playing</p>
+                <h2 class="subtitle">Join the Game</h2>
+                <p class="form-description">Create your account to start playing</p>
 
                 <div class="error-message" id="registerError"></div>
                 <div class="success-message" id="registerSuccess"></div>
 
-                <button class="btn google-btn" id="googleSignUpBtn">
+                <button class="btn google-btn" id="googleSignUpBtn" type="button">
                     <svg class="google-icon" viewBox="0 0 24 24">
                         <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -189,19 +101,19 @@
                     <div class="form-group input-group">
                         <label for="registerUsername">Username</label>
                         <span class="input-icon">👤</span>
-                        <input type="text" id="registerUsername" class="input-with-icon" required minlength="3" maxlength="20" autocomplete="username">
+                        <input type="text" id="registerUsername" class="input-with-icon" required minlength="3" maxlength="20" autocomplete="username" placeholder="Choose a username">
                     </div>
 
                     <div class="form-group input-group">
                         <label for="registerEmail">Email</label>
                         <span class="input-icon">📧</span>
-                        <input type="email" id="registerEmail" class="input-with-icon" required autocomplete="email">
+                        <input type="email" id="registerEmail" class="input-with-icon" required autocomplete="email" placeholder="Enter your email">
                     </div>
 
                     <div class="form-group input-group">
                         <label for="registerPassword">Password</label>
                         <span class="input-icon">🔒</span>
-                        <input type="password" id="registerPassword" class="input-with-icon" required minlength="6" autocomplete="new-password">
+                        <input type="password" id="registerPassword" class="input-with-icon" required minlength="6" autocomplete="new-password" placeholder="Create a password">
                         <span class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</span>
                         <div class="password-strength" id="passwordStrength" style="display: none;">
                             <div class="strength-bar">
@@ -214,7 +126,7 @@
                     <div class="form-group input-group">
                         <label for="confirmPassword">Confirm Password</label>
                         <span class="input-icon">🔒</span>
-                        <input type="password" id="confirmPassword" class="input-with-icon" required autocomplete="new-password">
+                        <input type="password" id="confirmPassword" class="input-with-icon" required autocomplete="new-password" placeholder="Confirm your password">
                         <span class="password-toggle" onclick="togglePassword('confirmPassword', this)">👁️</span>
                     </div>
 
@@ -224,14 +136,14 @@
                 </form>
 
                 <div class="form-footer">
-                    <p>Already have an account? <a href="#" class="form-link" onclick="showLogin()">Sign In</a></p>
+                    <p>Already have an account? <button type="button" class="form-link" onclick="showLogin()">Sign In</button></p>
                 </div>
             </div>
 
             <!-- Forgot Password Form -->
             <div id="forgotPasswordForm" class="form-slide hidden">
-                <h1 class="title">Reset Password</h1>
-                <p class="subtitle">Enter your email to receive a password reset link</p>
+                <h2 class="subtitle">Reset Password</h2>
+                <p class="form-description">Enter your email to receive a password reset link</p>
 
                 <div class="error-message" id="forgotPasswordError"></div>
                 <div class="success-message" id="forgotPasswordSuccess"></div>
@@ -240,7 +152,7 @@
                     <div class="form-group input-group">
                         <label for="forgotPasswordEmail">Email</label>
                         <span class="input-icon">📧</span>
-                        <input type="email" id="forgotPasswordEmail" class="input-with-icon" required autocomplete="email">
+                        <input type="email" id="forgotPasswordEmail" class="input-with-icon" required autocomplete="email" placeholder="Enter your email address">
                     </div>
 
                     <button type="submit" class="btn btn-primary" id="forgotPasswordBtn">
@@ -249,602 +161,37 @@
                 </form>
 
                 <div class="form-footer">
-                    <p>Remember your password? <a href="#" class="form-link" onclick="showLogin()">Sign In</a></p>
+                    <p>Remember your password? <button type="button" class="form-link" onclick="showLogin()">Sign In</button></p>
+                </div>
+            </div>
+
+            <!-- Offline Mode Display -->
+            <div id="offlineMode" class="form-slide hidden">
+                <div class="connection-error">
+                    <h3>🚫 Connection Error</h3>
+                    <p>Unable to connect to the authentication server.</p>
+                    
+                    <h4>Possible solutions:</h4>
+                    <ul>
+                        <li>Check your internet connection</li>
+                        <li>Verify your firewall settings</li>
+                        <li>Try refreshing the page</li>
+                        <li>Contact support if the problem persists</li>
+                    </ul>
+                    
+                    <button type="button" class="retry-btn" onclick="retryConnection()">Retry Connection</button>
+                    <button type="button" class="btn btn-secondary" onclick="continueOffline()" style="margin-top: 10px;">Continue Offline (Demo Mode)</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Global variables
-        let currentUser = null;
-
-        // Initialize the chess authentication system
-        window.initializeChessAuth = function() {
-            console.log('Initializing Chess Authentication...');
-            
-            // Set up event listeners
-            setupEventListeners();
-            
-            // Add input focus effects
-            setupInputEffects();
-            
-            // Add password strength indicator
-            setupPasswordStrength();
-            
-            // Add form validation
-            setupFormValidation();
-        };
-
-        // Setup all event listeners
-        function setupEventListeners() {
-            // Register form handler
-            document.getElementById('registerFormElement').addEventListener('submit', handleRegister);
-            
-            // Login form handler
-            document.getElementById('loginFormElement').addEventListener('submit', handleLogin);
-            
-            // Forgot password form handler
-            document.getElementById('forgotPasswordFormElement').addEventListener('submit', handleForgotPassword);
-            
-            // Google sign in buttons
-            document.getElementById('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
-            document.getElementById('googleSignUpBtn').addEventListener('click', handleGoogleSignIn);
-        }
-
-        // Handle user registration
-        async function handleRegister(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('registerUsername').value.trim();
-            const email = document.getElementById('registerEmail').value.trim();
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-
-            // Validation
-            if (!username || !email || !password || !confirmPassword) {
-                showError('register', 'All fields are required!');
-                return;
-            }
-
-            if (username.length < 3 || username.length > 20) {
-                showError('register', 'Username must be between 3 and 20 characters!');
-                return;
-            }
-
-            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-                showError('register', 'Username can only contain letters, numbers, and underscores!');
-                return;
-            }
-
-            if (password !== confirmPassword) {
-                showError('register', 'Passwords do not match!');
-                return;
-            }
-
-            if (password.length < 6) {
-                showError('register', 'Password must be at least 6 characters long!');
-                return;
-            }
-
-            setButtonLoading('registerBtn', true);
-
-            try {
-                // Check if username already exists
-                const usernameQuery = window.firebaseServices.query(
-                    window.firebaseServices.collection(window.firebaseDb, 'users'),
-                    window.firebaseServices.where('username', '==', username)
-                );
-                const usernameSnapshot = await window.firebaseServices.getDocs(usernameQuery);
-                
-                if (!usernameSnapshot.empty) {
-                    throw new Error('Username already exists!');
-                }
-
-                // Create user with Firebase Auth
-                const userCredential = await window.firebaseServices.createUserWithEmailAndPassword(
-                    window.firebaseAuth, 
-                    email, 
-                    password
-                );
-
-                // Store additional user data in Firestore
-                await window.firebaseServices.setDoc(
-                    window.firebaseServices.doc(window.firebaseDb, 'users', userCredential.user.uid),
-                    {
-                        username: username,
-                        email: email,
-                        createdAt: window.firebaseServices.serverTimestamp(),
-                        lastLoginAt: window.firebaseServices.serverTimestamp(),
-                        gamesPlayed: 0,
-                        wins: 0,
-                        losses: 0,
-                        draws: 0,
-                        rating: 1200,
-                        provider: 'email',
-                        profileComplete: true
-                    }
-                );
-
-                setButtonLoading('registerBtn', false);
-                showSuccess('register', 'Registration successful! You can now sign in.');
-                document.getElementById('registerFormElement').reset();
-                setTimeout(() => showLogin(), 2000);
-
-            } catch (error) {
-                setButtonLoading('registerBtn', false);
-                showError('register', getErrorMessage(error));
-            }
-        }
-
-        // Handle user login
-        async function handleLogin(e) {
-            e.preventDefault();
-            
-            const emailOrUsername = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value;
-
-            if (!emailOrUsername || !password) {
-                showError('login', 'All fields are required!');
-                return;
-            }
-
-            setButtonLoading('loginBtn', true);
-
-            try {
-                let email = emailOrUsername;
-
-                // If input doesn't contain @, treat it as username and find email
-                if (!emailOrUsername.includes('@')) {
-                    const usernameQuery = window.firebaseServices.query(
-                        window.firebaseServices.collection(window.firebaseDb, 'users'),
-                        window.firebaseServices.where('username', '==', emailOrUsername)
-                    );
-                    const usernameSnapshot = await window.firebaseServices.getDocs(usernameQuery);
-                    
-                    if (usernameSnapshot.empty) {
-                        throw new Error('Username not found!');
-                    }
-                    
-                    email = usernameSnapshot.docs[0].data().email;
-                }
-
-                // Sign in with Firebase Auth
-                const userCredential = await window.firebaseServices.signInWithEmailAndPassword(window.firebaseAuth, email, password);
-                
-                // Update last login time
-                await window.firebaseServices.updateDoc(
-                    window.firebaseServices.doc(window.firebaseDb, 'users', userCredential.user.uid),
-                    {
-                        lastLoginAt: window.firebaseServices.serverTimestamp()
-                    }
-                );
-                
-                setButtonLoading('loginBtn', false);
-                showSuccess('login', 'Login successful! Redirecting...');
-                
-                setTimeout(() => {
-                    // Redirect to chess game or dashboard
-                    alert('Login successful! Chess game would load here.');
-                    // window.location.href = 'chessgame.html';
-                }, 1000);
-
-            } catch (error) {
-                setButtonLoading('loginBtn', false);
-                showError('login', getErrorMessage(error));
-            }
-        }
-
-        // Handle Google Sign In
-        async function handleGoogleSignIn() {
-            try {
-                const result = await window.firebaseServices.signInWithPopup(
-                    window.firebaseAuth, 
-                    window.firebaseServices.googleProvider
-                );
-                
-                const user = result.user;
-                
-                // Check if user document exists, if not create it
-                const userDocRef = window.firebaseServices.doc(window.firebaseDb, 'users', user.uid);
-                const userDoc = await window.firebaseServices.getDoc(userDocRef);
-                
-                if (!userDoc.exists()) {
-                    // Generate a unique username from the email
-                    let username = user.email.split('@')[0];
-                    
-                    // Check if username exists and modify if needed
-                    let uniqueUsername = await generateUniqueUsername(username);
-                    
-                    await window.firebaseServices.setDoc(userDocRef, {
-                        username: uniqueUsername,
-                        email: user.email,
-                        displayName: user.displayName,
-                        photoURL: user.photoURL,
-                        createdAt: window.firebaseServices.serverTimestamp(),
-                        lastLoginAt: window.firebaseServices.serverTimestamp(),
-                        gamesPlayed: 0,
-                        wins: 0,
-                        losses: 0,
-                        draws: 0,
-                        rating: 1200,
-                        provider: 'google',
-                        profileComplete: true
-                    });
-                } else {
-                    // Update last login time for existing users
-                    await window.firebaseServices.updateDoc(userDocRef, {
-                        lastLoginAt: window.firebaseServices.serverTimestamp()
-                    });
-                }
-                
-                showSuccess('login', 'Google sign-in successful! Redirecting...');
-                setTimeout(() => {
-                    alert('Google login successful! Chess game would load here.');
-                    // window.location.href = 'chessgame.html';
-                }, 1000);
-                
-            } catch (error) {
-                showError('login', getErrorMessage(error));
-            }
-        }
-
-        // Handle forgot password
-        async function handleForgotPassword(e) {
-            e.preventDefault();
-            
-            const email = document.getElementById('forgotPasswordEmail').value.trim();
-            
-            if (!email) {
-                showError('forgotPassword', 'Email is required!');
-                return;
-            }
-
-            if (!isValidEmail(email)) {
-                showError('forgotPassword', 'Please enter a valid email address!');
-                return;
-            }
-
-            setButtonLoading('forgotPasswordBtn', true);
-
-            try {
-                await window.firebaseServices.sendPasswordResetEmail(window.firebaseAuth, email);
-                
-                setButtonLoading('forgotPasswordBtn', false);
-                showSuccess('forgotPassword', 'Password reset email sent! Check your inbox.');
-                document.getElementById('forgotPasswordFormElement').reset();
-                
-            } catch (error) {
-                setButtonLoading('forgotPasswordBtn', false);
-                showError('forgotPassword', getErrorMessage(error));
-            }
-        }
-
-        // Generate unique username
-        async function generateUniqueUsername(baseUsername) {
-            let username = baseUsername;
-            let counter = 1;
-            
-            while (true) {
-                const usernameQuery = window.firebaseServices.query(
-                    window.firebaseServices.collection(window.firebaseDb, 'users'),
-                    window.firebaseServices.where('username', '==', username)
-                );
-                const snapshot = await window.firebaseServices.getDocs(usernameQuery);
-                
-                if (snapshot.empty) {
-                    return username;
-                }
-                
-                username = `${baseUsername}${counter}`;
-                counter++;
-            }
-        }
-
-        // Toggle between forms with smooth transitions
-        function showRegister() {
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('registerForm').classList.remove('hidden');
-            document.getElementById('forgotPasswordForm').classList.add('hidden');
-            clearMessages();
-            scrollToTop();
-        }
-
-        function showLogin() {
-            document.getElementById('registerForm').classList.add('hidden');
-            document.getElementById('loginForm').classList.remove('hidden');
-            document.getElementById('forgotPasswordForm').classList.add('hidden');
-            clearMessages();
-            scrollToTop();
-        }
-
-        function showForgotPassword() {
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('registerForm').classList.add('hidden');
-            document.getElementById('forgotPasswordForm').classList.remove('hidden');
-            clearMessages();
-            scrollToTop();
-        }
-
-        // Scroll to top of container
-        function scrollToTop() {
-            const container = document.querySelector('.auth-container');
-            container.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        // Toggle password visibility
-        function togglePassword(inputId, toggleBtn) {
-            const input = document.getElementById(inputId);
-            if (input.type === 'password') {
-                input.type = 'text';
-                toggleBtn.textContent = '🙈';
-            } else {
-                input.type = 'password';
-                toggleBtn.textContent = '👁️';
-            }
-        }
-
-        // Clear all messages
-        function clearMessages() {
-            document.querySelectorAll('.error-message, .success-message').forEach(msg => {
-                msg.style.display = 'none';
-            });
-        }
-
-        // Show error message
-        function showError(formType, message) {
-            clearMessages();
-            const errorDiv = document.getElementById(formType + 'Error');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            scrollToTop();
-        }
-
-        // Show success message
-        function showSuccess(formType, message) {
-            clearMessages();
-            const successDiv = document.getElementById(formType + 'Success');
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
-            scrollToTop();
-        }
-
-        // Set button loading state
-        function setButtonLoading(buttonId, isLoading) {
-            const btn = document.getElementById(buttonId);
-            const btnText = btn.querySelector('.btn-text');
-            
-            if (isLoading) {
-                btn.disabled = true;
-                btnText.innerHTML = '<div class="loading"></div>';
-            } else {
-                btn.disabled = false;
-                const buttonTexts = {
-                    'loginBtn': 'Sign In',
-                    'registerBtn': 'Create Account',
-                    'forgotPasswordBtn': 'Send Reset Link'
-                };
-                btnText.textContent = buttonTexts[buttonId] || 'Submit';
-            }
-        }
-
-        // Get user-friendly error messages
-        function getErrorMessage(error) {
-            const errorMessages = {
-                'auth/email-already-in-use': 'Email is already registered. Please use a different email or try signing in.',
-                'auth/invalid-email': 'Please enter a valid email address.',
-                'auth/operation-not-allowed': 'Email/password accounts are not enabled. Please contact support.',
-                'auth/weak-password': 'Password is too weak. Please choose a stronger password (at least 6 characters).',
-                'auth/user-disabled': 'This account has been disabled. Please contact support.',
-                'auth/user-not-found': 'No account found with this email. Please check your email or create a new account.',
-                'auth/wrong-password': 'Incorrect password. Please try again or reset your password.',
-                'auth/invalid-credential': 'Invalid email or password. Please check your credentials.',
-                'auth/too-many-requests': 'Too many failed login attempts. Please try again later.',
-                'auth/network-request-failed': 'Network error. Please check your internet connection.',
-                'auth/popup-blocked': 'Popup was blocked. Please allow popups for this site and try again.',
-                'auth/popup-closed-by-user': 'Sign-in popup was closed. Please try again.',
-                'auth/cancelled-popup-request': 'Sign-in was cancelled. Please try again.',
-                'auth/account-exists-with-different-credential': 'An account already exists with the same email but different sign-in credentials.'
-            };
-            
-            return errorMessages[error.code] || error.message || 'An unexpected error occurred. Please try again.';
-        }
-
-        // Setup input focus effects
-        function setupInputEffects() {
-            document.querySelectorAll('input').forEach(input => {
-                input.addEventListener('focus', function() {
-                    this.parentElement.style.transform = 'translateY(-2px)';
-                    this.parentElement.style.transition = 'transform 0.3s ease';
-                });
-                
-                input.addEventListener('blur', function() {
-                    this.parentElement.style.transform = 'translateY(0)';
-                });
-
-                // Add smooth focus transitions
-                input.addEventListener('focusin', function() {
-                    this.style.borderColor = '#667eea';
-                    this.style.boxShadow = '0 10px 30px rgba(102, 126, 234, 0.2)';
-                });
-
-                input.addEventListener('focusout', function() {
-                    this.style.borderColor = '#e1e5e9';
-                    this.style.boxShadow = 'none';
-                });
-            });
-        }
-
-        // Setup password strength indicator
-        function setupPasswordStrength() {
-            const passwordInput = document.getElementById('registerPassword');
-            const strengthIndicator = document.getElementById('passwordStrength');
-            const strengthFill = document.getElementById('strengthFill');
-            const strengthText = document.getElementById('strengthText');
-
-            if (passwordInput) {
-                passwordInput.addEventListener('input', function() {
-                    const password = this.value;
-                    const strength = calculatePasswordStrength(password);
-                    
-                    if (password.length > 0) {
-                        strengthIndicator.style.display = 'block';
-                        strengthFill.className = 'strength-fill strength-' + strength.level;
-                        strengthText.textContent = strength.text;
-                    } else {
-                        strengthIndicator.style.display = 'none';
-                    }
-                });
-            }
-        }
-
-        // Calculate password strength
-        function calculatePasswordStrength(password) {
-            let score = 0;
-            
-            // Length check
-            if (password.length >= 8) score += 1;
-            if (password.length >= 12) score += 1;
-            
-            // Character variety
-            if (/[a-z]/.test(password)) score += 1;
-            if (/[A-Z]/.test(password)) score += 1;
-            if (/[0-9]/.test(password)) score += 1;
-            if (/[^A-Za-z0-9]/.test(password)) score += 1;
-            
-            // Common patterns (reduce score)
-            if (/(.)\1{2,}/.test(password)) score -= 1; // Repeated characters
-            if (/123|abc|qwe/i.test(password)) score -= 1; // Sequential characters
-            
-            score = Math.max(0, Math.min(4, score));
-            
-            const levels = [
-                { level: 'weak', text: 'Weak' },
-                { level: 'weak', text: 'Weak' },
-                { level: 'fair', text: 'Fair' },
-                { level: 'good', text: 'Good' },
-                { level: 'strong', text: 'Strong' }
-            ];
-            
-            return levels[score];
-        }
-
-        // Setup form validation
-        function setupFormValidation() {
-            // Real-time email validation
-            document.getElementById('registerEmail').addEventListener('blur', function() {
-                if (this.value && !isValidEmail(this.value)) {
-                    this.style.borderColor = '#ff4757';
-                    showError('register', 'Please enter a valid email address.');
-                } else {
-                    this.style.borderColor = '#e1e5e9';
-                }
-            });
-
-            // Username validation
-            document.getElementById('registerUsername').addEventListener('input', function() {
-                const username = this.value;
-                if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
-                    this.style.borderColor = '#ff4757';
-                } else {
-                    this.style.borderColor = '#e1e5e9';
-                }
-            });
-
-            // Password confirmation
-            document.getElementById('confirmPassword').addEventListener('blur', function() {
-                const password = document.getElementById('registerPassword').value;
-                if (this.value && this.value !== password) {
-                    this.style.borderColor = '#ff4757';
-                } else {
-                    this.style.borderColor = '#e1e5e9';
-                }
-            });
-        }
-
-        // Validate email format
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
-
-        // Add keyboard navigation
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                // Close any open modals or return to login
-                showLogin();
-            }
-        });
-
-        // Add auto-focus to first input when switching forms
-        function focusFirstInput(formId) {
-            setTimeout(() => {
-                const form = document.getElementById(formId);
-                const firstInput = form.querySelector('input:not([type="hidden"])');
-                if (firstInput) {
-                    firstInput.focus();
-                }
-            }, 300);
-        }
-
-        // Enhanced form switching with focus
-        const originalShowLogin = showLogin;
-        const originalShowRegister = showRegister;
-        const originalShowForgotPassword = showForgotPassword;
-
-        showLogin = function() {
-            originalShowLogin();
-            focusFirstInput('loginForm');
-        };
-
-        showRegister = function() {
-            originalShowRegister();
-            focusFirstInput('registerForm');
-        };
-
-        showForgotPassword = function() {
-            originalShowForgotPassword();
-            focusFirstInput('forgotPasswordForm');
-        };
-
-        // Auto-resize container based on content
-        function adjustContainerHeight() {
-            const container = document.querySelector('.auth-container');
-            const activeForm = document.querySelector('.form-slide:not(.hidden)');
-            if (activeForm) {
-                const formHeight = activeForm.scrollHeight;
-                const maxHeight = window.innerHeight * 0.9;
-                container.style.maxHeight = Math.min(formHeight + 200, maxHeight) + 'px';
-            }
-        }
-
-        // Call on form switches
-        const observer = new MutationObserver(() => {
-            adjustContainerHeight();
-        });
-
-        observer.observe(document.querySelector('.form-container'), {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class']
-        });
-
-        // Initialize on window resize
-        window.addEventListener('resize', adjustContainerHeight);
-
-        // Initialize when page loads
-        if (typeof window.initializeChessAuth !== 'function') {
-            // Fallback initialization
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(() => {
-                    if (typeof window.initializeChessAuth === 'function') {
-                        window.initializeChessAuth();
-                        adjustContainerHeight();
-                    }
-                }, 1000);
-            });
-        }
-    </script>
+    <!-- Fixed Firebase SDK Loading -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="firebase.js"></script>
+    <script src="chesslogin.js"></script>
 </body>
 </html>

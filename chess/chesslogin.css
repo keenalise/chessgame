@@ -16,6 +16,73 @@ body {
     padding: 20px 0;
 }
 
+/* Connection Status Styles */
+.connection-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.connection-online {
+    background: #4caf50;
+    color: white;
+}
+
+.connection-offline {
+    background: #f44336;
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+.connection-checking {
+    background: #ff9800;
+    color: white;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Debug Info Styles */
+.debug-info {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #495057;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+    white-space: pre-wrap;
+}
+
+.debug-toggle {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 10px;
+    padding: 5px 0;
+    transition: color 0.3s ease;
+}
+
+.debug-toggle:hover {
+    color: #764ba2;
+}
+
 /* Animated background elements */
 .bg-shapes {
     position: fixed;
@@ -150,7 +217,7 @@ body {
     font-weight: 700;
     color: #333;
     text-align: center;
-    margin-bottom: 10px;
+    margin: 0;
     background: linear-gradient(135deg, #667eea, #764ba2);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -158,6 +225,14 @@ body {
 }
 
 .subtitle {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.form-description {
     text-align: center;
     color: #666;
     margin-bottom: 30px;
@@ -192,6 +267,11 @@ body {
     border-color: #667eea;
     transform: translateY(-2px);
     box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+}
+
+.form-group input.error {
+    border-color: #f44336;
+    box-shadow: 0 0 0 0.2rem rgba(244, 67, 54, 0.25);
 }
 
 .password-toggle {
@@ -230,7 +310,7 @@ body {
     color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
 }
@@ -241,7 +321,7 @@ body {
     border: 2px solid #667eea;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
     background: #667eea;
     color: white;
     transform: translateY(-2px);
@@ -259,7 +339,7 @@ body {
     letter-spacing: normal;
 }
 
-.google-btn:hover {
+.google-btn:hover:not(:disabled) {
     background: #f8f9fa;
     border-color: #667eea;
     transform: translateY(-2px);
@@ -303,7 +383,7 @@ body {
     margin-bottom: 10px;
 }
 
-.form-footer button {
+.form-footer .form-link {
     background: none;
     border: none;
     color: #667eea;
@@ -314,7 +394,7 @@ body {
     transition: color 0.3s ease;
 }
 
-.form-footer button:hover {
+.form-footer .form-link:hover {
     color: #764ba2;
 }
 
@@ -327,6 +407,7 @@ body {
     border-left: 4px solid #c33;
     font-size: 14px;
     display: none;
+    animation: slideIn 0.3s ease;
 }
 
 .success-message {
@@ -338,10 +419,22 @@ body {
     border-left: 4px solid #363;
     font-size: 14px;
     display: none;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 /* Loading animation */
@@ -362,6 +455,7 @@ body {
 .btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+    transform: none !important;
 }
 
 /* Password strength indicator */
@@ -388,28 +482,6 @@ body {
 .strength-fair { background: #ffa726; width: 50%; }
 .strength-good { background: #26a69a; width: 75%; }
 .strength-strong { background: #4caf50; width: 100%; }
-
-/* Responsive design */
-@media (max-width: 480px) {
-    body {
-        padding: 10px 0;
-    }
-    
-    .auth-container {
-        width: 95%;
-        padding: 30px 20px;
-        margin: 10px;
-        max-height: 95vh;
-    }
-    
-    .title {
-        font-size: 28px;
-    }
-    
-    .chess-piece {
-        font-size: 40px;
-    }
-}
 
 /* Form transitions */
 .form-container {
@@ -444,10 +516,11 @@ body {
     top: 38px;
     color: #666;
     font-size: 16px;
+    z-index: 1;
 }
 
 .input-with-icon {
-    padding-left: 45px;
+    padding-left: 45px !important;
 }
 
 .form-link {
@@ -455,9 +528,128 @@ body {
     text-decoration: none;
     font-weight: 500;
     transition: color 0.3s ease;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: inherit;
 }
 
 .form-link:hover {
     color: #764ba2;
     text-decoration: underline;
+}
+
+/* Connection error styles */
+.connection-error {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.connection-error h3 {
+    color: #f44336;
+    margin-bottom: 15px;
+    font-size: 20px;
+}
+
+.connection-error h4 {
+    color: #333;
+    margin: 20px 0 10px 0;
+    font-size: 16px;
+}
+
+.connection-error ul {
+    text-align: left;
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.connection-error li {
+    margin-bottom: 8px;
+    color: #555;
+}
+
+/* Retry button */
+.retry-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 15px;
+    transition: background 0.3s ease;
+}
+
+.retry-btn:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+    body {
+        padding: 10px 0;
+    }
+    
+    .auth-container {
+        width: 95%;
+        padding: 30px 20px;
+        margin: 10px;
+        max-height: 95vh;
+    }
+    
+    .title {
+        font-size: 28px;
+    }
+    
+    .subtitle {
+        font-size: 20px;
+    }
+    
+    .chess-piece {
+        font-size: 40px;
+    }
+    
+    .connection-status {
+        top: 10px;
+        right: 10px;
+        font-size: 11px;
+        padding: 6px 12px;
+    }
+    
+    .debug-info {
+        font-size: 11px;
+        padding: 10px;
+        max-height: 150px;
+    }
+    
+    .form-container {
+        min-height: 300px;
+    }
+    
+    .btn {
+        padding: 14px;
+        font-size: 14px;
+    }
+    
+    .form-group input {
+        padding: 12px 15px;
+        font-size: 14px;
+    }
+    
+    .input-with-icon {
+        padding-left: 40px !important;
+    }
+    
+    .input-icon {
+        top: 35px;
+        font-size: 14px;
+    }
+    
+    .password-toggle {
+        top: 35px;
+        font-size: 16px;
+    }
 }
