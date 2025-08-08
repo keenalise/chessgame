@@ -4,7 +4,390 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>♔ Beautiful Chess Game ♛</title>
-    <link rel="stylesheet" href="chessgame.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: #ecf0f1;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(52, 73, 94, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #f39c12, #e74c3c, #9b59b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .turn-indicator {
+            background: #34495e;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border: 2px solid #3498db;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .turn-indicator.white {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .castling-info {
+            background: #7f8c8d;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            border: 1px solid #95a5a6;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-new { background: #27ae60; color: white; }
+        .btn-undo { background: #e74c3c; color: white; }
+        .btn-redo { background: #f39c12; color: white; }
+        .btn-clear { background: #95a5a6; color: white; }
+
+        .game-area {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .board-container {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 3px solid #3498db;
+        }
+
+        .chessboard {
+            width: 640px;
+            height: 640px;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 3px solid #2c3e50;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .square {
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .square.light {
+            background: #f0d9b5;
+        }
+
+        .square.dark {
+            background: #b58863;
+        }
+
+        .square:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+        }
+
+        .square.selected {
+            background: #ff6b6b !important;
+            box-shadow: inset 0 0 20px rgba(255, 107, 107, 0.7);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #74b9ff;
+            border-radius: 50%;
+            opacity: 0.8;
+        }
+
+        .square.capture::after {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 3px solid #74b9ff;
+            border-radius: 50%;
+            opacity: 0.8;
+        }
+
+        .square.castle::after {
+            content: '♜';
+            position: absolute;
+            color: #9b59b6;
+            font-size: 1.5rem;
+            opacity: 0.8;
+        }
+
+        .square.en-passant::after {
+            content: 'EP';
+            position: absolute;
+            color: #e74c3c;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: 2px solid #e74c3c;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .square.check {
+            background: #ff4757 !important;
+            animation: checkBlink 1s infinite;
+        }
+
+        @keyframes checkBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .piece {
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 5;
+            transition: all 0.3s ease;
+        }
+
+        .piece.white {
+            color: #ecf0f1;
+            filter: drop-shadow(1px 1px 3px rgba(0,0,0,0.7));
+        }
+
+        .piece.black {
+            color: #2c3e50;
+            filter: drop-shadow(1px 1px 3px rgba(255,255,255,0.3));
+        }
+
+        .coordinates {
+            position: absolute;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #34495e;
+            pointer-events: none;
+        }
+
+        .file-coord {
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .rank-coord {
+            top: 2px;
+            left: 2px;
+        }
+
+        .move-history {
+            background: #34495e;
+            border-radius: 15px;
+            padding: 20px;
+            border: 3px solid #3498db;
+            min-width: 300px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .move-history h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            color: #ecf0f1;
+        }
+
+        .moves-list {
+            background: #ecf0f1;
+            color: #2c3e50;
+            border-radius: 8px;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .moves-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .moves-list::-webkit-scrollbar-track {
+            background: #bdc3c7;
+            border-radius: 4px;
+        }
+
+        .moves-list::-webkit-scrollbar-thumb {
+            background: #7f8c8d;
+            border-radius: 4px;
+        }
+
+        .status-bar {
+            margin-top: 20px;
+            text-align: center;
+            padding: 10px;
+            background: rgba(127, 140, 141, 0.2);
+            border-radius: 8px;
+            font-style: italic;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+        }
+
+        .modal-content {
+            background: #2c3e50;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #3498db;
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #ecf0f1;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .promotion-pieces {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .promotion-btn {
+            padding: 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .promotion-btn:hover {
+            background: #2980b9;
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 768px) {
+            .chessboard {
+                width: 400px;
+                height: 400px;
+            }
+
+            .square {
+                width: 50px;
+                height: 50px;
+                font-size: 1.5rem;
+            }
+
+            .game-area {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .title {
+                font-size: 1.8rem;
+            }
+
+            .info-panel {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">

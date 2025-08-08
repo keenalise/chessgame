@@ -1,0 +1,463 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow-x: hidden;
+    padding: 20px 0;
+}
+
+/* Animated background elements */
+.bg-shapes {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.shape {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: float 6s ease-in-out infinite;
+}
+
+.shape:nth-child(1) {
+    width: 80px;
+    height: 80px;
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.shape:nth-child(2) {
+    width: 120px;
+    height: 120px;
+    top: 60%;
+    right: 10%;
+    animation-delay: 2s;
+}
+
+.shape:nth-child(3) {
+    width: 60px;
+    height: 60px;
+    bottom: 20%;
+    left: 20%;
+    animation-delay: 4s;
+}
+
+.shape:nth-child(4) {
+    width: 100px;
+    height: 100px;
+    top: 10%;
+    right: 25%;
+    animation-delay: 3s;
+}
+
+.shape:nth-child(5) {
+    width: 70px;
+    height: 70px;
+    bottom: 10%;
+    right: 15%;
+    animation-delay: 1s;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(180deg); }
+}
+
+.auth-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 450px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 40px;
+    position: relative;
+    z-index: 10;
+    transition: all 0.3s ease;
+    margin: 20px;
+}
+
+.auth-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+}
+
+/* Custom scrollbar */
+.auth-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.auth-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.auth-container::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 3px;
+}
+
+.auth-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.5);
+}
+
+.chess-icon {
+    text-align: center;
+    margin-bottom: 30px;
+    position: sticky;
+    top: 0;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 10px 0;
+    border-radius: 15px;
+    z-index: 100;
+}
+
+.chess-piece {
+    font-size: 48px;
+    color: #333;
+    margin-bottom: 10px;
+    display: inline-block;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    80% { transform: translateY(-5px); }
+}
+
+.title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #333;
+    text-align: center;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 15px 20px;
+    border: 2px solid #e1e5e9;
+    border-radius: 12px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+}
+
+.password-toggle {
+    position: absolute;
+    right: 15px;
+    top: 38px;
+    cursor: pointer;
+    color: #666;
+    font-size: 18px;
+    user-select: none;
+    transition: color 0.3s ease;
+}
+
+.password-toggle:hover {
+    color: #667eea;
+}
+
+.btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: #667eea;
+    border: 2px solid #667eea;
+}
+
+.btn-secondary:hover {
+    background: #667eea;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.google-btn {
+    background: #fff;
+    color: #333;
+    border: 2px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.google-btn:hover {
+    background: #f8f9fa;
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.google-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.divider {
+    text-align: center;
+    margin: 25px 0;
+    position: relative;
+    color: #666;
+}
+
+.divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #e1e5e9;
+}
+
+.divider span {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0 20px;
+    position: relative;
+}
+
+.form-footer {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.form-footer p {
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.form-footer button {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.form-footer button:hover {
+    color: #764ba2;
+}
+
+.error-message {
+    background: #fee;
+    color: #c33;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #c33;
+    font-size: 14px;
+    display: none;
+}
+
+.success-message {
+    background: #efe;
+    color: #363;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #363;
+    font-size: 14px;
+    display: none;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Loading animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Password strength indicator */
+.password-strength {
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.strength-bar {
+    height: 4px;
+    background: #e1e5e9;
+    border-radius: 2px;
+    margin: 5px 0;
+    overflow: hidden;
+}
+
+.strength-fill {
+    height: 100%;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.strength-weak { background: #ff4757; width: 25%; }
+.strength-fair { background: #ffa726; width: 50%; }
+.strength-good { background: #26a69a; width: 75%; }
+.strength-strong { background: #4caf50; width: 100%; }
+
+/* Responsive design */
+@media (max-width: 480px) {
+    body {
+        padding: 10px 0;
+    }
+    
+    .auth-container {
+        width: 95%;
+        padding: 30px 20px;
+        margin: 10px;
+        max-height: 95vh;
+    }
+    
+    .title {
+        font-size: 28px;
+    }
+    
+    .chess-piece {
+        font-size: 40px;
+    }
+}
+
+/* Form transitions */
+.form-container {
+    min-height: 400px;
+    position: relative;
+}
+
+.form-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    transition: all 0.3s ease;
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.form-slide.hidden {
+    opacity: 0;
+    transform: translateX(20px);
+    pointer-events: none;
+}
+
+/* Additional styling for better UX */
+.input-group {
+    position: relative;
+}
+
+.input-icon {
+    position: absolute;
+    left: 15px;
+    top: 38px;
+    color: #666;
+    font-size: 16px;
+}
+
+.input-with-icon {
+    padding-left: 45px;
+}
+
+.form-link {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.form-link:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
