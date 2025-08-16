@@ -1,5 +1,3 @@
-// firebase.js - Complete Fixed Version
-
 const firebaseConfig = {
     apiKey: "AIzaSyBBP3jjc4WKshCNVIS1dv-ANP0OnFhxmRM",
     authDomain: "keenchess-9149f.firebaseapp.com",

@@ -1,5 +1,3 @@
-// chesslogin.js - Complete Fixed Version
-
 let elements = {};
 let currentForm = 'login';
 
