@@ -10,6 +10,7 @@
         // Board flip functionality
         let isAutoFlip = true;
         let isBoardFlipped = false;
+        let pendingPromotion = null;
 
 
         
@@ -170,6 +171,8 @@
             }
         }
 
+        //  movePiece function 
+
         function movePiece(row, col) {
             const startRow = selectedPiece.row;
             const startCol = selectedPiece.col;
@@ -187,9 +190,9 @@
             if (isValidMove(startRow, startCol, row, col, piece)) {
                 // Check for en passant capture
                 const isEnPassant = piece.endsWith('pawn') && 
-                                  enPassantTarget && 
-                                  row === enPassantTarget.row && 
-                                  col === enPassantTarget.col;
+                                enPassantTarget && 
+                                row === enPassantTarget.row && 
+                                col === enPassantTarget.col;
                 
                 let enPassantCapturedPiece = null;
                 let enPassantCapturedPos = null;
@@ -255,22 +258,16 @@
                     // Check for pawn promotion
                     if (piece.endsWith('pawn') && (row === 0 || row === 7)) {
                         showPromotionDialog(row, col);
+                        // Don't switch turns or check for checkmate yet - wait for promotion
+                    } else {
+                        // Switch turns and check game state for non-promotion moves
+                        currentTurn = currentTurn === 'white' ? 'black' : 'white';
+                        updateTurnDisplay();
+                        updateCastlingDisplay();
+                        
+                        // Check game end conditions
+                        checkGameEndConditions();
                     }
-                    
-                    // Switch turns
-                    currentTurn = currentTurn === 'white' ? 'black' : 'white';
-                    updateTurnDisplay();
-                    updateCastlingDisplay();
-                    
-                    // Check game end conditions
-                    if (isCheckmate(currentTurn)) {
-                        const winner = currentTurn === 'white' ? 'Black' : 'White';
-                        showVictoryModal(winner);
-                    } else if (isInCheck(currentTurn)) {
-                        // Just highlight the king in check, no message
-                        highlightKingInCheck();
-                    }
-                    
                     
                     // Add move to history display
                     const isCapture = capturedPiece !== null || isEnPassant;
@@ -291,6 +288,40 @@
             selectedPiece = null;
             clearHighlights();
             drawPieces();
+        }
+
+        // Add this new function to check game end conditions:
+        function checkGameEndConditions() {
+            if (isCheckmate(currentTurn)) {
+                const winner = currentTurn === 'white' ? 'Black' : 'White';
+                showVictoryModal(winner);
+            } else if (isInCheck(currentTurn)) {
+                // Just highlight the king in check, no message
+                highlightKingInCheck();
+            }
+        }
+
+        // Replace the selectPromotion function with this fixed version:
+        function selectPromotion(pieceType) {
+            const modal = document.getElementById('promotionModal');
+            const row = parseInt(modal.dataset.row);
+            const col = parseInt(modal.dataset.col);
+            
+            const currentPiece = board[row][col];
+            const pieceColor = currentPiece.split('_')[0];
+            
+            board[row][col] = `${pieceColor}_${pieceType}`;
+            drawPieces();
+            
+            modal.style.display = 'none';
+            
+            // NOW switch turns and check for checkmate after promotion is complete
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            updateTurnDisplay();
+            updateCastlingDisplay();
+            
+            // Check game end conditions after promotion
+            checkGameEndConditions();
         }
 
         function isValidMove(startRow, startCol, endRow, endCol, piece) {
