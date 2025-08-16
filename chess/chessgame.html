@@ -66,6 +66,41 @@
             </div>
         </div>
     </div>
+    <!-- Victory Modal -->
+    <div id="victoryModal" class="victory-modal">
+        <div class="victory-content">
+            <div class="victory-header">
+                <span class="victory-close" onclick="closeVictoryModal()">&times;</span>
+                <h2 class="victory-title">Victory!</h2>
+            </div>
+            <div class="victory-body">
+                <div class="victory-message" id="victoryMessage">
+                    White wins by checkmate!
+                </div>
+                <div class="victory-stats">
+                    <div class="victory-stat">
+                        <div class="victory-stat-icon">⚡</div>
+                        <div class="victory-stat-number" id="moveCount">15</div>
+                        <div class="victory-stat-label">Moves</div>
+                    </div>
+                    <!-- <div class="victory-stat">
+                        <div class="victory-stat-icon">⭐</div>
+                        <div class="victory-stat-number">11</div>
+                        <div class="victory-stat-label">Best</div>
+                    </div> -->
+                    <!-- <div class="victory-stat">
+                        <div class="victory-stat-icon">👑</div>
+                        <div class="victory-stat-number">12</div>
+                        <div class="victory-stat-label">Excellent</div>
+                    </div> -->
+                </div>
+                <div class="victory-buttons">
+                    <button class="victory-btn victory-btn-primary" onclick="newGame(); closeVictoryModal();">New Game</button>
+                    <button class="victory-btn victory-btn-secondary" onclick="newGame(); closeVictoryModal();">Rematch</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- External JS -->
     <script src="chessgame.js"></script>

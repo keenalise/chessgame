@@ -434,6 +434,141 @@ body {
     animation: flipAnimation 0.6s ease-in-out;
 }
 
+.victory-modal {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+}
+
+.victory-content {
+    background: linear-gradient(145deg, #2c3e50, #34495e);
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 20px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    border: 3px solid #3498db;
+    overflow: hidden;
+    animation: victorySlide 0.5s ease-out;
+}
+
+@keyframes victorySlide {
+    from { transform: translateY(-100px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.victory-header {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+    padding: 20px;
+    text-align: center;
+    position: relative;
+}
+
+.victory-close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.victory-close:hover {
+    color: #bdc3c7;
+}
+
+.victory-title {
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.victory-body {
+    padding: 30px;
+    text-align: center;
+}
+
+.victory-message {
+    background: white;
+    color: #2c3e50;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.victory-stats {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+    font-size: 0.9rem;
+}
+
+.victory-stat {
+    text-align: center;
+    color: #ecf0f1;
+}
+
+.victory-stat-icon {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.victory-stat-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.victory-stat-label {
+    opacity: 0.8;
+}
+
+.victory-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.victory-btn {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.victory-btn-primary {
+    background: linear-gradient(45deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.victory-btn-secondary {
+    background: #7f8c8d;
+    color: white;
+}
+
+.victory-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
 @keyframes flipAnimation {
     0% { transform: rotateY(0deg); }
     50% { transform: rotateY(180deg); }

@@ -229,7 +229,7 @@
                     if (isEnPassant) {
                         board[enPassantCapturedPos.row][enPassantCapturedPos.col] = enPassantCapturedPiece;
                     }
-                    showMessage("Invalid Move", "You cannot leave your king in check!");
+                    
                 } else {
                     // Valid move - update castling rights
                     updateCastlingRightsAfterMove(piece, startRow, startCol, row, col);
@@ -265,11 +265,12 @@
                     // Check game end conditions
                     if (isCheckmate(currentTurn)) {
                         const winner = currentTurn === 'white' ? 'Black' : 'White';
-                        showMessage("Checkmate!", `${winner} wins by checkmate!`);
+                        showVictoryModal(winner);
                     } else if (isInCheck(currentTurn)) {
-                        showMessage("Check!", `${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)} king is in check!`);
+                        // Just highlight the king in check, no message
                         highlightKingInCheck();
                     }
+                    
                     
                     // Add move to history display
                     const isCapture = capturedPiece !== null || isEnPassant;
@@ -386,23 +387,91 @@
             for (let row = 0; row < 8; row++) {
                 for (let col = 0; col < 8; col++) {
                     if (isValidMove(startRow, startCol, row, col, piece)) {
-                        const square = getSquareElement(row, col);
-                        if (board[row][col] !== null) {
-                            square.classList.add('capture');
-                        } else {
-                            square.classList.add('valid-move');
+                        // Check if this move would leave king in check
+                        const originalPiece = board[row][col];
+                        const movingPiece = board[startRow][startCol];
+                        
+                        // Make temporary move
+                        board[row][col] = movingPiece;
+                        board[startRow][startCol] = null;
+                        
+                        // Handle en passant capture temporarily
+                        let tempEnPassantCapture = null;
+                        let tempEnPassantPos = null;
+                        if (piece.endsWith('pawn') && enPassantTarget && 
+                            row === enPassantTarget.row && col === enPassantTarget.col) {
+                            const capturedPawnRow = row + (piece.startsWith('white') ? 1 : -1);
+                            tempEnPassantCapture = board[capturedPawnRow][col];
+                            tempEnPassantPos = { row: capturedPawnRow, col };
+                            board[capturedPawnRow][col] = null;
+                        }
+                        
+                        // Check if king would still be in check after this move
+                        const wouldBeInCheck = isInCheck(currentTurn);
+                        
+                        // Restore board
+                        board[startRow][startCol] = movingPiece;
+                        board[row][col] = originalPiece;
+                        if (tempEnPassantCapture) {
+                            board[tempEnPassantPos.row][tempEnPassantPos.col] = tempEnPassantCapture;
+                        }
+                        
+                        // Only show move if it doesn't leave king in check
+                        if (!wouldBeInCheck) {
+                            const square = getSquareElement(row, col);
+                            if (board[row][col] !== null) {
+                                square.classList.add('capture');
+                            } else {
+                                square.classList.add('valid-move');
+                            }
                         }
                     }
                 }
             }
             
-            // Show castling moves for king
-            if (piece.endsWith('king')) {
+            // Show castling moves for king (only if not in check)
+            if (piece.endsWith('king') && !isInCheck(currentTurn)) {
                 showCastlingMoves(startRow, startCol);
             }
             // Show en passant moves for pawns
             if (piece.endsWith('pawn')) {
-                showEnPassantMoves(startRow, startCol);
+                showEnPassantMovesFiltered(startRow, startCol);
+            }
+        }
+        //enpassant
+        function showEnPassantMovesFiltered(startRow, startCol) {
+            if (!enPassantTarget) return;
+            
+            const piece = board[startRow][startCol];
+            if (!piece.endsWith('pawn')) return;
+            
+            const direction = piece.startsWith('white') ? -1 : 1;
+            const targetRow = enPassantTarget.row;
+            const targetCol = enPassantTarget.col;
+            
+            // Check if this pawn can capture en passant
+            if (targetRow === startRow + direction && Math.abs(targetCol - startCol) === 1) {
+                // Test if en passant move would leave king in check
+                const capturedPawnRow = targetRow + (piece.startsWith('white') ? 1 : -1);
+                const capturedPiece = board[capturedPawnRow][targetCol];
+                
+                // Make temporary en passant move
+                board[startRow][startCol] = null;
+                board[targetRow][targetCol] = piece;
+                board[capturedPawnRow][targetCol] = null;
+                
+                const wouldBeInCheck = isInCheck(currentTurn);
+                
+                // Restore board
+                board[startRow][startCol] = piece;
+                board[targetRow][targetCol] = null;
+                board[capturedPawnRow][targetCol] = capturedPiece;
+                
+                // Only show en passant if it doesn't leave king in check
+                if (!wouldBeInCheck) {
+                    const square = getSquareElement(targetRow, targetCol);
+                    square.classList.add('en-passant');
+                }
             }
         }
 
@@ -566,7 +635,6 @@
             
             // Check for check after castling
             if (isInCheck(currentTurn)) {
-                showMessage("Check!", `${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)} king is in check!`);
                 highlightKingInCheck();
             }
         }
@@ -791,7 +859,7 @@
             }
             
             if (availableCastles.length === 0) {
-                showMessage("Cannot Castle", "No castling moves available!");
+                
                 return;
             }
             
@@ -838,7 +906,7 @@
 
         function undoMove() {
             if (moveHistory.length === 0) {
-                showMessage("Cannot Undo", "No moves to undo!");
+                
                 return;
             }
             
@@ -922,7 +990,7 @@
 
         function redoMove() {
             if (redoHistory.length === 0) {
-                showMessage("Cannot Redo", "No moves to redo!");
+                
                 return;
             }
             
@@ -1033,9 +1101,8 @@
             if (isInCheck(currentTurn)) {
                 if (isCheckmate(currentTurn)) {
                     const winner = currentTurn === 'white' ? 'Black' : 'White';
-                    showMessage("Checkmate!", `${winner} wins by checkmate!`);
+                    showVictoryModal(winner);
                 } else {
-                    showMessage("Check!", `${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)} king is in check!`);
                     highlightKingInCheck();
                 }
             }
@@ -1199,7 +1266,24 @@
                 }
             });
         }
+        function showVictoryModal(winner) {
+            const modal = document.getElementById('victoryModal');
+            const message = document.getElementById('victoryMessage');
+            const moveCountEl = document.getElementById('moveCount');
+            
+            // Set victory message
+            message.textContent = `${winner} wins by checkmate!`;
+            
+            // Set move count
+            moveCountEl.textContent = Math.ceil(moveHistory.length / 2);
+            
+            // Show modal
+            modal.style.display = 'block';
+        }
         
+        function closeVictoryModal() {
+            document.getElementById('victoryModal').style.display = 'none';
+        }
         
 
         
