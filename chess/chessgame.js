@@ -7,6 +7,11 @@
         let redoHistory = [];
         let enPassantTarget = null;
         let capturedPieces = { white: [], black: [] };
+        // Board flip functionality
+        let isAutoFlip = true;
+        let isBoardFlipped = false;
+
+
         
         // Castling tracking
         let castlingRights = {
@@ -829,6 +834,7 @@
             
             modal.style.display = 'none';
         }
+        
 
         function undoMove() {
             if (moveHistory.length === 0) {
@@ -1103,6 +1109,101 @@
         function showMessage(title, message) {
             alert(`${title}: ${message}`);
         }
+        // flip boardss
+        function toggleFlipMode() {
+            isAutoFlip = !isAutoFlip;
+            const flipBtn = document.getElementById('flipBoardBtn');
+            const flipText = document.getElementById('flipBoardText');
+            
+            if (isAutoFlip) {
+                flipBtn.className = 'flip-board-btn auto-mode';
+                flipText.textContent = 'Auto Flip: ON';
+                // Auto flip based on current turn
+                flipBoard(currentTurn === 'black');
+            } else {
+                flipBtn.className = 'flip-board-btn manual-mode';
+                flipText.textContent = 'Manual Flip';
+                // Allow manual flipping
+                flipBoard(!isBoardFlipped);
+            }
+        }
+        function flipBoard(shouldFlip) {
+            const chessboard = document.getElementById('chessboard');
+            const flipBtn = document.getElementById('flipBoardBtn');
+            
+            if (shouldFlip !== isBoardFlipped) {
+                isBoardFlipped = shouldFlip;
+                
+                // Add flip animation class
+                flipBtn.classList.add('flipping');
+                setTimeout(() => flipBtn.classList.remove('flipping'), 600);
+                
+                // Apply flip transformation
+                if (isBoardFlipped) {
+                    chessboard.style.transform = 'rotate(180deg)';
+                    // Counter-rotate pieces to keep them upright
+                    document.querySelectorAll('.piece').forEach(piece => {
+                        piece.style.transform = 'rotate(180deg)';
+                    });
+                    // Counter-rotate coordinates
+                    document.querySelectorAll('.coordinates').forEach(coord => {
+                        coord.style.transform = 'rotate(180deg)';
+                    });
+                } else {
+                    chessboard.style.transform = 'none';
+                    document.querySelectorAll('.piece').forEach(piece => {
+                        piece.style.transform = 'none';
+                    });
+                    document.querySelectorAll('.coordinates').forEach(coord => {
+                        coord.style.transform = 'none';
+                    });
+                }
+            }
+        }
+        // turn table function
+        function updateTurnDisplay() {
+            const turnIndicator = document.getElementById('turnIndicator');
+            turnIndicator.textContent = `${currentTurn.charAt(0).toUpperCase() + currentTurn.slice(1)}'s Turn`;
+            turnIndicator.className = `turn-indicator ${currentTurn}`;
+            
+            // Auto flip if enabled
+            if (isAutoFlip) {
+                flipBoard(currentTurn === 'black');
+            }
+        }
+        // Also update the drawPieces function to apply rotation to new pieces
+        function drawPieces() {
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                const row = parseInt(square.dataset.row);
+                const col = parseInt(square.dataset.col);
+                const piece = board[row][col];
+                
+                // Remove existing piece
+                const existingPiece = square.querySelector('.piece');
+                if (existingPiece) {
+                    existingPiece.remove();
+                }
+                
+                if (piece) {
+                    const pieceElement = document.createElement('div');
+                    pieceElement.className = `piece ${piece.split('_')[0]}`;
+                    pieceElement.textContent = pieceSymbols[piece];
+                    
+                    // Apply rotation if board is flipped
+                    if (isBoardFlipped) {
+                        pieceElement.style.transform = 'rotate(180deg)';
+                    }
+                    
+                    square.appendChild(pieceElement);
+                }
+            });
+        }
+        
+        
+
+        
+        
 
         // Initialize game when page loads
         window.addEventListener('load', initGame);
