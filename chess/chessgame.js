@@ -308,17 +308,25 @@
             updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""}`);
         }
 
-        // Add this new function to check game end conditions:
+        // game end conditions
         function checkGameEndConditions() {
-            if (isCheckmate(currentTurn)) {
+            const isInCheckNow = isInCheck(currentTurn);
+            const isCheckmateNow = isInCheckNow && isCheckmate(currentTurn);
+            const isStalemateNow = !isInCheckNow && isStalemate(currentTurn);
+            
+            if (isCheckmateNow) {
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
-                console.log(`Checkmate detected! ${winner} wins`); // Debug log
+                console.log(`Checkmate detected! ${winner} wins`);
                 showVictoryModal(winner);
-            } else if (isInCheck(currentTurn)) {
-                console.log(`${currentTurn} king is in check`); // Debug log
+            } else if (isStalemateNow) {
+                console.log(`Stalemate detected! Game is a draw`);
+                showDrawModal();
+            } else if (isInCheckNow) {
+                console.log(`${currentTurn} king is in check`);
                 highlightKingInCheck();
             }
         }
+        
 
         // selectPromotion function 
         function selectPromotion(pieceType) {
@@ -1237,6 +1245,67 @@
             document.getElementById('castlingInfo').textContent = rightsText;
         }
 
+        //stalemate function 
+        function isStalemate(color) {
+            // If the king is in check, it's not stalemate
+            if (isInCheck(color)) {
+                return false;
+            }
+            
+            // Check if there are any legal moves available
+            for (let fromRow = 0; fromRow < 8; fromRow++) {
+                for (let fromCol = 0; fromCol < 8; fromCol++) {
+                    const piece = board[fromRow][fromCol];
+                    if (piece && piece.startsWith(color)) {
+                        // Try all possible destination squares
+                        for (let toRow = 0; toRow < 8; toRow++) {
+                            for (let toCol = 0; toCol < 8; toCol++) {
+                                if (isValidMove(fromRow, fromCol, toRow, toCol, piece)) {
+                                    // Make temporary move
+                                    const capturedPiece = board[toRow][toCol];
+                                    const movingPiece = board[fromRow][fromCol];
+                                    
+                                    // Handle en passant capture temporarily
+                                    let tempEnPassantCapture = null;
+                                    let tempEnPassantPos = null;
+                                    if (piece.endsWith('pawn') && enPassantTarget && 
+                                        toRow === enPassantTarget.row && toCol === enPassantTarget.col) {
+                                        const capturedPawnRow = toRow + (piece.startsWith('white') ? 1 : -1);
+                                        tempEnPassantCapture = board[capturedPawnRow][toCol];
+                                        tempEnPassantPos = { row: capturedPawnRow, col: toCol };
+                                        board[capturedPawnRow][toCol] = null;
+                                    }
+                                    
+                                    // Execute the move
+                                    board[fromRow][fromCol] = null;
+                                    board[toRow][toCol] = movingPiece;
+                                    
+                                    // Check if king would be in check after this move
+                                    const wouldBeInCheck = isInCheck(color);
+                                    
+                                    // Restore the board
+                                    board[fromRow][fromCol] = movingPiece;
+                                    board[toRow][toCol] = capturedPiece;
+                                    if (tempEnPassantCapture) {
+                                        board[tempEnPassantPos.row][tempEnPassantPos.col] = tempEnPassantCapture;
+                                    }
+                                    
+                                    // If this move doesn't put king in check, there's a legal move
+                                    if (!wouldBeInCheck) {
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // No legal moves found and king is not in check = stalemate
+            return true;
+        }
+
+
         function updateStatus(message) {
             document.getElementById('statusBar').textContent = message;
         }
@@ -1348,10 +1417,30 @@
             // Show modal
             modal.style.display = 'block';
         }
+        //draw modal
+        function showDrawModal() {
+            const modal = document.getElementById('victoryModal');
+            const message = document.getElementById('victoryMessage');
+            const moveCountEl = document.getElementById('moveCount');
+            const title = document.querySelector('.victory-title');
+            
+            // Set draw message
+            title.textContent = 'Draw!';
+            message.textContent = 'Game ends in a draw by stalemate!';
+            
+            // Set move count
+            moveCountEl.textContent = Math.ceil(moveHistory.length / 2);
+            
+            // Show modal
+            modal.style.display = 'block';
+        }
         
         function closeVictoryModal() {
             document.getElementById('victoryModal').style.display = 'none';
         }
+
+
+        
         
 
         
