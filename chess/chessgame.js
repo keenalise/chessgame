@@ -11,6 +11,8 @@
         let isAutoFlip = true;
         let isBoardFlipped = false;
         let pendingPromotion = null;
+        let pendingPromotionMove = null;
+
 
 
         
@@ -257,30 +259,23 @@
                     
                     // Check for pawn promotion
                     if (piece.endsWith('pawn') && (row === 0 || row === 7)) {
-                        showPromotionDialog(row, col);
-                        // Don't switch turns or check for checkmate yet - wait for promotion
-                    } else {
-                        // Switch turns and check game state for non-promotion moves
-                        currentTurn = currentTurn === 'white' ? 'black' : 'white';
-                        updateTurnDisplay();
-                        updateCastlingDisplay();
+                        // Store the move data for after promotion
+                        pendingPromotionMove = {
+                            piece,
+                            startRow,
+                            startCol,
+                            row,
+                            col,
+                            isCapture: capturedPiece !== null || isEnPassant,
+                            isEnPassant
+                        };
                         
-                        // Check game end conditions
-                        checkGameEndConditions();
+                        showPromotionDialog(row, col);
+                        // Don't switch turns, add move notation, or check game state yet - wait for promotion
+                    } else {
+                        // Complete the move for non-promotion moves
+                        completeMoveAfterPromotion(piece, startRow, startCol, row, col, capturedPiece !== null || isEnPassant, isEnPassant);
                     }
-                    
-                    // Add move to history display
-                    const isCapture = capturedPiece !== null || isEnPassant;
-                    const moveNotation = formatMoveNotation(piece, startRow, startCol, row, col, isCapture);
-                    const finalNotation = moveNotation + (isEnPassant ? " e.p." : "");
-                    
-                    const isCheck = isInCheck(currentTurn);
-                    const isCheckmateVal = isCheckmate(currentTurn);
-                    
-                    addMoveToHistory(finalNotation, isCapture, isCheck, isCheckmateVal);
-                    
-                    const displayMove = `${String.fromCharCode(97 + startCol)}${8-startRow} → ${String.fromCharCode(97 + col)}${8-row}`;
-                    updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""}`);
                 }
             }
             
@@ -289,39 +284,65 @@
             clearHighlights();
             drawPieces();
         }
+        
+        // New helper function to complete move processing
+        function completeMoveAfterPromotion(piece, startRow, startCol, endRow, endCol, isCapture, isEnPassant) {
+            // Switch turns
+            currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            updateTurnDisplay();
+            updateCastlingDisplay();
+            
+            // Add move to history display
+            const moveNotation = formatMoveNotation(piece, startRow, startCol, endRow, endCol, isCapture);
+            const finalNotation = moveNotation + (isEnPassant ? " e.p." : "");
+            
+            const isCheck = isInCheck(currentTurn);
+            const isCheckmateVal = isCheckmate(currentTurn);
+            
+            addMoveToHistory(finalNotation, isCapture, isCheck, isCheckmateVal);
+            
+            // Check game end conditions
+            checkGameEndConditions();
+            
+            const displayMove = `${String.fromCharCode(97 + startCol)}${8-startRow} → ${String.fromCharCode(97 + endCol)}${8-endRow}`;
+            updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""}`);
+        }
 
         // Add this new function to check game end conditions:
         function checkGameEndConditions() {
             if (isCheckmate(currentTurn)) {
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
+                console.log(`Checkmate detected! ${winner} wins`); // Debug log
                 showVictoryModal(winner);
             } else if (isInCheck(currentTurn)) {
-                // Just highlight the king in check, no message
+                console.log(`${currentTurn} king is in check`); // Debug log
                 highlightKingInCheck();
             }
         }
 
-        // Replace the selectPromotion function with this fixed version:
+        // selectPromotion function 
         function selectPromotion(pieceType) {
             const modal = document.getElementById('promotionModal');
             const row = parseInt(modal.dataset.row);
             const col = parseInt(modal.dataset.col);
-            
+
             const currentPiece = board[row][col];
             const pieceColor = currentPiece.split('_')[0];
-            
-            board[row][col] = `${pieceColor}_${pieceType}`;
+
+            // Promote the pawn on the board
+            const promotedPiece = `${pieceColor}_${pieceType}`;
+            board[row][col] = promotedPiece;
             drawPieces();
-            
+
+            // Hide the modal
             modal.style.display = 'none';
-            
-            // NOW switch turns and check for checkmate after promotion is complete
-            currentTurn = currentTurn === 'white' ? 'black' : 'white';
-            updateTurnDisplay();
-            updateCastlingDisplay();
-            
-            // Check game end conditions after promotion
-            checkGameEndConditions();
+
+            // If we have a pending promotion move, complete it now (switch turn, history, checkmate detection, etc.)
+            if (pendingPromotionMove) {
+                const { startRow, startCol, row: endRow, col: endCol, isCapture, isEnPassant } = pendingPromotionMove;
+                completeMoveAfterPromotion(promotedPiece, startRow, startCol, endRow, endCol, isCapture, isEnPassant);
+                pendingPromotionMove = null;
+            }
         }
 
         function isValidMove(startRow, startCol, endRow, endCol, piece) {
@@ -791,36 +812,64 @@
         }
 
         function isCheckmate(color) {
+            // First check if the king is actually in check
             if (!isInCheck(color)) {
                 return false;
             }
-
-            for (let row = 0; row < 8; row++) {
-                for (let col = 0; col < 8; col++) {
-                    const piece = board[row][col];
+        
+            // Try all possible moves for all pieces of this color
+            for (let fromRow = 0; fromRow < 8; fromRow++) {
+                for (let fromCol = 0; fromCol < 8; fromCol++) {
+                    const piece = board[fromRow][fromCol];
                     if (piece && piece.startsWith(color)) {
-                        for (let r = 0; r < 8; r++) {
-                            for (let c = 0; c < 8; c++) {
-                                if (isValidMove(row, col, r, c, piece)) {
-                                    const originalPiece = board[r][c];
-                                    board[r][c] = piece;
-                                    board[row][col] = null;
-                                    if (!isInCheck(color)) {
-                                        board[row][col] = piece;
-                                        board[r][c] = originalPiece;
+                        // Try all possible destination squares
+                        for (let toRow = 0; toRow < 8; toRow++) {
+                            for (let toCol = 0; toCol < 8; toCol++) {
+                                if (isValidMove(fromRow, fromCol, toRow, toCol, piece)) {
+                                    // Make temporary move
+                                    const capturedPiece = board[toRow][toCol];
+                                    const movingPiece = board[fromRow][fromCol];
+                                    
+                                    // Handle en passant capture temporarily
+                                    let tempEnPassantCapture = null;
+                                    let tempEnPassantPos = null;
+                                    if (piece.endsWith('pawn') && enPassantTarget && 
+                                        toRow === enPassantTarget.row && toCol === enPassantTarget.col) {
+                                        const capturedPawnRow = toRow + (piece.startsWith('white') ? 1 : -1);
+                                        tempEnPassantCapture = board[capturedPawnRow][toCol];
+                                        tempEnPassantPos = { row: capturedPawnRow, col: toCol };
+                                        board[capturedPawnRow][toCol] = null;
+                                    }
+                                    
+                                    // Execute the move
+                                    board[fromRow][fromCol] = null;
+                                    board[toRow][toCol] = movingPiece;
+                                    
+                                    // Check if king is still in check after this move
+                                    const stillInCheck = isInCheck(color);
+                                    
+                                    // Restore the board
+                                    board[fromRow][fromCol] = movingPiece;
+                                    board[toRow][toCol] = capturedPiece;
+                                    if (tempEnPassantCapture) {
+                                        board[tempEnPassantPos.row][tempEnPassantPos.col] = tempEnPassantCapture;
+                                    }
+                                    
+                                    // If this move gets the king out of check, it's not checkmate
+                                    if (!stillInCheck) {
                                         return false;
                                     }
-                                    board[row][col] = piece;
-                                    board[r][c] = originalPiece;
                                 }
                             }
                         }
                     }
                 }
             }
-
+            
+            // No legal moves found that get the king out of check
             return true;
         }
+        
 
         function highlightKingInCheck() {
             const kingPos = findKing(currentTurn);
@@ -920,19 +969,7 @@
             document.getElementById('promotionModal').dataset.col = col;
         }
 
-        function selectPromotion(pieceType) {
-            const modal = document.getElementById('promotionModal');
-            const row = parseInt(modal.dataset.row);
-            const col = parseInt(modal.dataset.col);
-            
-            const currentPiece = board[row][col];
-            const pieceColor = currentPiece.split('_')[0];
-            
-            board[row][col] = `${pieceColor}_${pieceType}`;
-            drawPieces();
-            
-            modal.style.display = 'none';
-        }
+
         
 
         function undoMove() {
