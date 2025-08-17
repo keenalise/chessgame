@@ -12,6 +12,7 @@
         let isBoardFlipped = false;
         let pendingPromotion = null;
         let pendingPromotionMove = null;
+        let halfmoveClock = 0; // Counts half-moves since last pawn move or capture
 
 
 
@@ -219,7 +220,8 @@
                     enPassantTargetBefore: enPassantTarget,
                     isEnPassant,
                     enPassantCapturedPiece,
-                    enPassantCapturedPos
+                    enPassantCapturedPos,
+                    halfmoveClockBefore: halfmoveClock
                 };
                 
                 // Make the move
@@ -287,6 +289,15 @@
         
         // New helper function to complete move processing
         function completeMoveAfterPromotion(piece, startRow, startCol, endRow, endCol, isCapture, isEnPassant) {
+            // Update halfmove clock BEFORE switching turns
+            if (piece.endsWith('pawn') || isCapture || isEnPassant) {
+                console.log("Resetting halfmove clock - pawn move or capture");
+                halfmoveClock = 0;
+            } else {
+                halfmoveClock++;
+                console.log(`Halfmove clock incremented to: ${halfmoveClock}`);
+            }
+            
             // Switch turns
             currentTurn = currentTurn === 'white' ? 'black' : 'white';
             updateTurnDisplay();
@@ -305,7 +316,7 @@
             checkGameEndConditions();
             
             const displayMove = `${String.fromCharCode(97 + startCol)}${8-startRow} → ${String.fromCharCode(97 + endCol)}${8-endRow}`;
-            updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""}`);
+            updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""} - Halfmoves: ${halfmoveClock}`);
         }
 
         // game end conditions
@@ -313,14 +324,20 @@
             const isInCheckNow = isInCheck(currentTurn);
             const isCheckmateNow = isInCheckNow && isCheckmate(currentTurn);
             const isStalemateNow = !isInCheckNow && isStalemate(currentTurn);
+            const isFiftyMoveRuleNow = isFiftyMoveRule();
+            
+            console.log(`Game state check - Check: ${isInCheckNow}, Checkmate: ${isCheckmateNow}, Stalemate: ${isStalemateNow}, 50-move: ${isFiftyMoveRuleNow}`);
             
             if (isCheckmateNow) {
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
                 console.log(`Checkmate detected! ${winner} wins`);
                 showVictoryModal(winner);
+            } else if (isFiftyMoveRuleNow) {
+                console.log(`50-move rule triggered! Game is a draw`);
+                showDrawModal('fifty-move');
             } else if (isStalemateNow) {
                 console.log(`Stalemate detected! Game is a draw`);
-                showDrawModal();
+                showDrawModal('stalemate');
             } else if (isInCheckNow) {
                 console.log(`${currentTurn} king is in check`);
                 highlightKingInCheck();
@@ -569,6 +586,11 @@
                 square.classList.add('en-passant');
             }
         }
+        // function to check for 50-move rule
+        function isFiftyMoveRule() {
+            return halfmoveClock >= 100; // 100 half-moves = 50 full moves
+        }
+
 
         function canCastle(color, side) {
             // Check if we still have castling rights
@@ -659,8 +681,12 @@
                 rookFrom: { row: kingRow, col: rookCol },
                 rookTo: { row: kingRow, col: newRookCol },
                 turn: currentTurn,
-                castlingRightsBefore: JSON.parse(JSON.stringify(castlingRights))
+                castlingRightsBefore: JSON.parse(JSON.stringify(castlingRights)),
+                halfmoveClockBefore: halfmoveClock // Store for undo
             };
+            
+            // Update halfmove clock (castling is not a pawn move or capture)
+            halfmoveClock++;
             
             // Move pieces
             const kingPiece = board[kingRow][kingCol];
@@ -693,10 +719,8 @@
             addMoveToHistory(castleNotation, false, false, false, true);
             updateStatus(`Castled ${side}: ${castleNotation}`);
             
-            // Check for check after castling
-            if (isInCheck(currentTurn)) {
-                highlightKingInCheck();
-            }
+            // Check game end conditions (including 50-move rule)
+            checkGameEndConditions();
         }
 
         function updateCastlingRightsAfterMove(piece, fromRow, fromCol, toRow, toCol) {
@@ -982,7 +1006,6 @@
 
         function undoMove() {
             if (moveHistory.length === 0) {
-                
                 return;
             }
             
@@ -1007,6 +1030,9 @@
                 
                 // Restore castling rights
                 castlingRights = JSON.parse(JSON.stringify(lastMove.castlingRightsBefore));
+                
+                // Restore halfmove clock
+                halfmoveClock = lastMove.halfmoveClockBefore || 0;
             } else {
                 // Undo normal move
                 const fromRow = lastMove.from.row;
@@ -1037,6 +1063,9 @@
                 
                 // Restore en passant target
                 enPassantTarget = lastMove.enPassantTargetBefore;
+                
+                // Restore halfmove clock
+                halfmoveClock = lastMove.halfmoveClockBefore || 0;
                 
                 // Remove captured piece from collection
                 if (lastMove.captured) {
@@ -1195,6 +1224,7 @@
             redoHistory = [];
             enPassantTarget = null;
             capturedPieces = { white: [], black: [] };
+            halfmoveClock = 0; // ADD this line
             
             // Reset castling rights
             castlingRights = {
@@ -1303,6 +1333,12 @@
             
             // No legal moves found and king is not in check = stalemate
             return true;
+        }
+        //function to check 50-move rule
+        function isFiftyMoveRule() {
+            const result = halfmoveClock >= 100;
+            console.log(`Checking 50-move rule: halfmoveClock=${halfmoveClock}, result=${result}`);
+            return result;
         }
 
 
@@ -1418,15 +1454,21 @@
             modal.style.display = 'block';
         }
         //draw modal
-        function showDrawModal() {
+        function showDrawModal(drawType = 'stalemate') {
             const modal = document.getElementById('victoryModal');
             const message = document.getElementById('victoryMessage');
             const moveCountEl = document.getElementById('moveCount');
             const title = document.querySelector('.victory-title');
             
-            // Set draw message
+            console.log(`Showing draw modal for: ${drawType}`);
+            
+            // Set draw message based on type
             title.textContent = 'Draw!';
-            message.textContent = 'Game ends in a draw by stalemate!';
+            if (drawType === 'fifty-move') {
+                message.textContent = 'Game ends in a draw by the 50-move rule!';
+            } else {
+                message.textContent = 'Game ends in a draw by stalemate!';
+            }
             
             // Set move count
             moveCountEl.textContent = Math.ceil(moveHistory.length / 2);
@@ -1437,6 +1479,18 @@
         
         function closeVictoryModal() {
             document.getElementById('victoryModal').style.display = 'none';
+        }
+
+        //50- moves testing
+        function testFiftyMoveRule() {
+            halfmoveClock = 9; // Set it close to trigger
+            console.log("Set halfmove clock to 98 for testing");
+            updateStatus(`Testing 50-move rule - Halfmoves: ${halfmoveClock}`);
+        }
+        // STEP 2: debug function to see what's happening
+        function debugFiftyMoveRule() {
+            console.log(`Halfmove clock: ${halfmoveClock}`);
+            console.log(`Moves until 50-move rule: ${50 - Math.floor(halfmoveClock / 2)}`);
         }
 
 
