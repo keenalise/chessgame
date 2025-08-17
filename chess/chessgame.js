@@ -1483,11 +1483,11 @@
 
         //50- moves testing
         function testFiftyMoveRule() {
-            halfmoveClock = 9; // Set it close to trigger
+            halfmoveClock = 98; // Set it close to trigger
             console.log("Set halfmove clock to 98 for testing");
             updateStatus(`Testing 50-move rule - Halfmoves: ${halfmoveClock}`);
         }
-        // STEP 2: debug function to see what's happening
+        // debug function to see what's happening
         function debugFiftyMoveRule() {
             console.log(`Halfmove clock: ${halfmoveClock}`);
             console.log(`Moves until 50-move rule: ${50 - Math.floor(halfmoveClock / 2)}`);
