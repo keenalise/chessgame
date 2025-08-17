@@ -33,8 +33,23 @@
 
             <div class="move-history">
                 <h3>Move History</h3>
-                <div id="movesList" class="moves-list"></div>
-                <button class="btn btn-clear" onclick="clearMoveHistory()" style="margin-top: 10px; width: 100%;">Clear History</button>
+                <!-- Navigation buttons -->
+    <div class="move-navigation">
+        <button id="prevMoveBtn" class="nav-btn" onclick="navigateMove(-1)" title="Previous Move">
+            ❮
+        </button>
+        <div class="move-counter">
+            <span id="currentMoveDisplay">Live</span>
+        </div>
+        <button id="nextMoveBtn" class="nav-btn" onclick="navigateMove(1)" title="Next Move">
+            ❯
+        </button>
+    </div>
+    
+    <div id="movesList" class="moves-list"></div>
+    <button class="btn btn-clear" onclick="clearMoveHistory()" style="margin-top: 10px; width: 100%;">Clear History</button>
+
+                
             </div>
         </div>
 

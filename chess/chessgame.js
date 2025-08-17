@@ -14,6 +14,9 @@
         let pendingPromotionMove = null;
         let halfmoveClock = 0; // Counts half-moves since last pawn move or capture
         let positionHistory = []; // Stores position hashes for repetition detection
+        // variables for move right left
+        let currentMoveIndex = -1; // -1 means we're at the current live position
+        let gameStateHistory = []; // Store complete game states
 
 
 
@@ -38,6 +41,13 @@
             setupPieces();
             updateCastlingDisplay();
             updateTurnDisplay();
+            
+            // Initialize navigation
+            gameStateHistory = [];
+            currentMoveIndex = -1;
+            saveGameState();
+            currentMoveIndex = 0; // Start at the first position
+            updateNavigationButtons();
         }
 
         function setupBoard() {
@@ -304,6 +314,8 @@
             
             // Switch turns
             currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            saveGameState();
+            currentMoveIndex = gameStateHistory.length - 1; 
             updateTurnDisplay();
             updateCastlingDisplay();
             
@@ -311,6 +323,11 @@
             const currentPositionHash = generatePositionHash();
             positionHistory.push(currentPositionHash);
             console.log(`Added position to history. Total positions: ${positionHistory.length}`);
+            
+            // Save game state for navigation
+            saveGameState();
+            // Reset to live position when new move is made
+            currentMoveIndex = -1;
             
             // Add move to history display
             const moveNotation = formatMoveNotation(piece, startRow, startCol, endRow, endCol, isCapture);
@@ -333,24 +350,34 @@
             const isInCheckNow = isInCheck(currentTurn);
             const isCheckmateNow = isInCheckNow && isCheckmate(currentTurn);
             const isStalemateNow = !isInCheckNow && isStalemate(currentTurn);
-            const isFiftyMoveRuleNow = isFiftyMoveRule();
-            const isThreefoldRepetitionNow = isThreefoldRepetition();
             
-            console.log(`Game state check - Check: ${isInCheckNow}, Checkmate: ${isCheckmateNow}, Stalemate: ${isStalemateNow}, 50-move: ${isFiftyMoveRuleNow}, Threefold: ${isThreefoldRepetitionNow}`);
+            console.log(`Game state check - Check: ${isInCheckNow}, Checkmate: ${isCheckmateNow}, Stalemate: ${isStalemateNow}`);
             
+            // Check for checkmate first (highest priority)
             if (isCheckmateNow) {
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
                 console.log(`Checkmate detected! ${winner} wins`);
                 showVictoryModal(winner);
-            } else if (isFiftyMoveRuleNow) {
+                return; // Exit early - game is over
+            }
+            
+            // Check for stalemate
+            if (isStalemateNow) {
+                console.log(`Stalemate detected! Game is a draw`);
+                showDrawModal('stalemate');
+                return; // Exit early - game is over
+            }
+            
+            // Only check draw conditions if the game hasn't ended by checkmate or stalemate
+            const isFiftyMoveRuleNow = isFiftyMoveRule();
+            const isThreefoldRepetitionNow = isThreefoldRepetition();
+            
+            if (isFiftyMoveRuleNow) {
                 console.log(`50-move rule triggered! Game is a draw`);
                 showDrawModal('fifty-move');
             } else if (isThreefoldRepetitionNow) {
                 console.log(`Threefold repetition! Game is a draw`);
                 showDrawModal('threefold');
-            } else if (isStalemateNow) {
-                console.log(`Stalemate detected! Game is a draw`);
-                showDrawModal('stalemate');
             } else if (isInCheckNow) {
                 console.log(`${currentTurn} king is in check`);
                 highlightKingInCheck();
@@ -697,7 +724,7 @@
                 turn: currentTurn,
                 castlingRightsBefore: JSON.parse(JSON.stringify(castlingRights)),
                 halfmoveClockBefore: halfmoveClock,
-                positionHistoryLengthBefore: positionHistory.length // Store for undo
+                positionHistoryLengthBefore: positionHistory.length
             };
             
             // Update halfmove clock (castling is not a pawn move or capture)
@@ -722,6 +749,10 @@
             
             // Switch turns
             currentTurn = currentTurn === 'white' ? 'black' : 'white';
+            // Save game state for navigation
+            saveGameState();
+            // Stay at live position
+            currentMoveIndex = gameStateHistory.length - 1;
             updateTurnDisplay();
             updateCastlingDisplay();
             
@@ -729,6 +760,11 @@
             const currentPositionHash = generatePositionHash();
             positionHistory.push(currentPositionHash);
             console.log(`Added position to history after castling. Total positions: ${positionHistory.length}`);
+            
+            // Save game state for navigation
+            saveGameState();
+            // Reset to live position when new move is made
+            currentMoveIndex = -1;
             
             // Clear selection and redraw
             selectedPiece = null;
@@ -1254,8 +1290,12 @@
             redoHistory = [];
             enPassantTarget = null;
             capturedPieces = { white: [], black: [] };
-            halfmoveClock = 0; //reseting halfclock for new game 50 moves rule
-            positionHistory = []; // reseting for 3 fold repetition 
+            halfmoveClock = 0;
+            positionHistory = [];
+            
+            // Reset navigation
+            gameStateHistory = [];
+            currentMoveIndex = -1;
             
             // Reset castling rights
             castlingRights = {
@@ -1268,10 +1308,19 @@
             updateCastlingDisplay();
             clearHighlights();
             clearMoveHistory();
-
-            //Add initial position to history 
+        
+            // Add initial position to history
             const initialPosition = generatePositionHash();
             positionHistory.push(initialPosition);
+            
+            // Initialize navigation
+            saveGameState();
+            currentMoveIndex = 0;
+            
+            // Re-enable board interaction
+            const chessboard = document.getElementById('chessboard');
+            chessboard.style.pointerEvents = 'auto';
+            chessboard.style.opacity = '1';
             
             updateStatus("New game started!");
         }
@@ -1573,6 +1622,127 @@
             console.log(`Position repetition check: current count = ${count + 1}`);
             return count >= 2; // Current position + 2 previous = 3 total
         }
+
+
+        // save current game stat
+        function saveGameState() {
+            const gameState = {
+                board: board.map(row => [...row]), // Deep copy
+                currentTurn: currentTurn,
+                castlingRights: JSON.parse(JSON.stringify(castlingRights)),
+                enPassantTarget: enPassantTarget ? { ...enPassantTarget } : null,
+                halfmoveClock: halfmoveClock,
+                positionHistory: [...positionHistory],
+                capturedPieces: {
+                    white: [...capturedPieces.white],
+                    black: [...capturedPieces.black]
+                }
+            };
+            gameStateHistory.push(gameState);
+            updateNavigationButtons();
+        }
+
+
+        // function dor navigation 
+        function navigateMove(direction) {
+            const totalMoves = gameStateHistory.length;
+            if (totalMoves === 0) return;
+            
+            // Calculate new position
+            let newIndex = currentMoveIndex + direction;
+            
+            // Clamp the index
+            if (newIndex < 0) newIndex = 0;
+            if (newIndex >= totalMoves) newIndex = totalMoves - 1;
+            
+            if (newIndex === currentMoveIndex) return; // No change
+            
+            currentMoveIndex = newIndex;
+            
+            // Show the position at this index
+            restoreGameState(gameStateHistory[currentMoveIndex]);
+            
+            updateNavigationButtons();
+            drawPieces();
+            clearHighlights();
+            
+            // Disable piece interaction when not in live mode
+            const isLive = currentMoveIndex === totalMoves - 1;
+            const chessboard = document.getElementById('chessboard');
+            if (isLive) {
+                chessboard.style.pointerEvents = 'auto';
+                chessboard.style.opacity = '1';
+            } else {
+                chessboard.style.pointerEvents = 'none';
+                chessboard.style.opacity = '0.7';
+            }
+            
+            console.log(`Navigated to move ${currentMoveIndex + 1}/${totalMoves}`);
+        }
+
+
+        // Function to restore a game state
+        function restoreGameState(gameState) {
+            board = gameState.board.map(row => [...row]); // Deep copy
+            currentTurn = gameState.currentTurn;
+            castlingRights = JSON.parse(JSON.stringify(gameState.castlingRights));
+            enPassantTarget = gameState.enPassantTarget ? { ...gameState.enPassantTarget } : null;
+            halfmoveClock = gameState.halfmoveClock;
+            positionHistory = [...gameState.positionHistory];
+            capturedPieces = {
+                white: [...gameState.capturedPieces.white],
+                black: [...gameState.capturedPieces.black]
+            };
+            
+            updateTurnDisplay();
+            updateCastlingDisplay();
+        }
+
+
+        // Function to update navigation button states
+        function updateNavigationButtons() {
+            const prevBtn = document.getElementById('prevMoveBtn');
+            const nextBtn = document.getElementById('nextMoveBtn');
+            const totalMoves = gameStateHistory.length;
+            
+            if (!prevBtn || !nextBtn) return; // Elements not found
+            
+            // Previous button: disabled if we're at the first move
+            prevBtn.disabled = currentMoveIndex <= 0;
+            
+            // Next button: disabled if we're at the last move
+            nextBtn.disabled = currentMoveIndex >= totalMoves - 1;
+            
+            // Update move counter
+            const currentMoveDisplay = document.getElementById('currentMoveDisplay');
+            if (currentMoveDisplay) {
+                if (currentMoveIndex === totalMoves - 1 && totalMoves > 0) {
+                    currentMoveDisplay.textContent = 'Live';
+                } else {
+                    currentMoveDisplay.textContent = `${currentMoveIndex + 1}/${totalMoves}`;
+                }
+            }
+        }
+
+
+        // Function to go back to live position
+        function goToLivePosition() {
+            const totalMoves = gameStateHistory.length;
+            if (totalMoves => 0 && currentMoveIndex !== totalMoves - 1) {
+                currentMoveIndex = totalMoves - 1;
+                restoreGameState(gameStateHistory[currentMoveIndex]);
+                updateNavigationButtons();
+                drawPieces();
+                clearHighlights();
+                
+                // Re-enable piece interaction
+                const chessboard = document.getElementById('chessboard');
+                chessboard.style.pointerEvents = 'auto';
+                chessboard.style.opacity = '1';
+            }
+        }
+        
+        
 
         
 
