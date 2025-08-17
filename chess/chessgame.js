@@ -13,6 +13,7 @@
         let pendingPromotion = null;
         let pendingPromotionMove = null;
         let halfmoveClock = 0; // Counts half-moves since last pawn move or capture
+        let positionHistory = []; // Stores position hashes for repetition detection
 
 
 
@@ -221,7 +222,8 @@
                     isEnPassant,
                     enPassantCapturedPiece,
                     enPassantCapturedPos,
-                    halfmoveClockBefore: halfmoveClock
+                    halfmoveClockBefore: halfmoveClock, 
+                    positionHistoryLengthBefore: positionHistory.length // 3 fold repitition 
                 };
                 
                 // Make the move
@@ -287,12 +289,14 @@
             drawPieces();
         }
         
-        // New helper function to complete move processing
+        // function to complete move processing
         function completeMoveAfterPromotion(piece, startRow, startCol, endRow, endCol, isCapture, isEnPassant) {
             // Update halfmove clock BEFORE switching turns
             if (piece.endsWith('pawn') || isCapture || isEnPassant) {
                 console.log("Resetting halfmove clock - pawn move or capture");
                 halfmoveClock = 0;
+                // Clear position history on irreversible moves (pawn moves or captures)
+                positionHistory = [];
             } else {
                 halfmoveClock++;
                 console.log(`Halfmove clock incremented to: ${halfmoveClock}`);
@@ -302,6 +306,11 @@
             currentTurn = currentTurn === 'white' ? 'black' : 'white';
             updateTurnDisplay();
             updateCastlingDisplay();
+            
+            // Add current position to history AFTER the move is complete
+            const currentPositionHash = generatePositionHash();
+            positionHistory.push(currentPositionHash);
+            console.log(`Added position to history. Total positions: ${positionHistory.length}`);
             
             // Add move to history display
             const moveNotation = formatMoveNotation(piece, startRow, startCol, endRow, endCol, isCapture);
@@ -325,8 +334,9 @@
             const isCheckmateNow = isInCheckNow && isCheckmate(currentTurn);
             const isStalemateNow = !isInCheckNow && isStalemate(currentTurn);
             const isFiftyMoveRuleNow = isFiftyMoveRule();
+            const isThreefoldRepetitionNow = isThreefoldRepetition();
             
-            console.log(`Game state check - Check: ${isInCheckNow}, Checkmate: ${isCheckmateNow}, Stalemate: ${isStalemateNow}, 50-move: ${isFiftyMoveRuleNow}`);
+            console.log(`Game state check - Check: ${isInCheckNow}, Checkmate: ${isCheckmateNow}, Stalemate: ${isStalemateNow}, 50-move: ${isFiftyMoveRuleNow}, Threefold: ${isThreefoldRepetitionNow}`);
             
             if (isCheckmateNow) {
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
@@ -335,6 +345,9 @@
             } else if (isFiftyMoveRuleNow) {
                 console.log(`50-move rule triggered! Game is a draw`);
                 showDrawModal('fifty-move');
+            } else if (isThreefoldRepetitionNow) {
+                console.log(`Threefold repetition! Game is a draw`);
+                showDrawModal('threefold');
             } else if (isStalemateNow) {
                 console.log(`Stalemate detected! Game is a draw`);
                 showDrawModal('stalemate');
@@ -655,7 +668,8 @@
             
             return inCheck;
         }
-
+    
+        //function to perform castle    
         function performCastle(color, side) {
             const kingRow = color === 'white' ? 7 : 0;
             const kingCol = 4;
@@ -682,7 +696,8 @@
                 rookTo: { row: kingRow, col: newRookCol },
                 turn: currentTurn,
                 castlingRightsBefore: JSON.parse(JSON.stringify(castlingRights)),
-                halfmoveClockBefore: halfmoveClock // Store for undo
+                halfmoveClockBefore: halfmoveClock,
+                positionHistoryLengthBefore: positionHistory.length // Store for undo
             };
             
             // Update halfmove clock (castling is not a pawn move or capture)
@@ -710,6 +725,11 @@
             updateTurnDisplay();
             updateCastlingDisplay();
             
+            // Add current position to history AFTER the move is complete
+            const currentPositionHash = generatePositionHash();
+            positionHistory.push(currentPositionHash);
+            console.log(`Added position to history after castling. Total positions: ${positionHistory.length}`);
+            
             // Clear selection and redraw
             selectedPiece = null;
             clearHighlights();
@@ -719,7 +739,7 @@
             addMoveToHistory(castleNotation, false, false, false, true);
             updateStatus(`Castled ${side}: ${castleNotation}`);
             
-            // Check game end conditions (including 50-move rule)
+            // Check game end conditions (including threefold repetition)
             checkGameEndConditions();
         }
 
@@ -1003,7 +1023,7 @@
 
 
         
-
+        // undo function
         function undoMove() {
             if (moveHistory.length === 0) {
                 return;
@@ -1033,6 +1053,11 @@
                 
                 // Restore halfmove clock
                 halfmoveClock = lastMove.halfmoveClockBefore || 0;
+                
+                // Restore position history
+                if (lastMove.positionHistoryLengthBefore !== undefined) {
+                    positionHistory = positionHistory.slice(0, lastMove.positionHistoryLengthBefore);
+                }
             } else {
                 // Undo normal move
                 const fromRow = lastMove.from.row;
@@ -1066,6 +1091,11 @@
                 
                 // Restore halfmove clock
                 halfmoveClock = lastMove.halfmoveClockBefore || 0;
+                
+                // Restore position history
+                if (lastMove.positionHistoryLengthBefore !== undefined) {
+                    positionHistory = positionHistory.slice(0, lastMove.positionHistoryLengthBefore);
+                }
                 
                 // Remove captured piece from collection
                 if (lastMove.captured) {
@@ -1224,7 +1254,8 @@
             redoHistory = [];
             enPassantTarget = null;
             capturedPieces = { white: [], black: [] };
-            halfmoveClock = 0; // ADD this line
+            halfmoveClock = 0; //reseting halfclock for new game 50 moves rule
+            positionHistory = []; // reseting for 3 fold repetition 
             
             // Reset castling rights
             castlingRights = {
@@ -1237,6 +1268,11 @@
             updateCastlingDisplay();
             clearHighlights();
             clearMoveHistory();
+
+            //Add initial position to history 
+            const initialPosition = generatePositionHash();
+            positionHistory.push(initialPosition);
+            
             updateStatus("New game started!");
         }
 
@@ -1466,6 +1502,8 @@
             title.textContent = 'Draw!';
             if (drawType === 'fifty-move') {
                 message.textContent = 'Game ends in a draw by the 50-move rule!';
+            } else if (drawType === 'threefold') {
+                message.textContent = 'Game ends in a draw by threefold repetition!';
             } else {
                 message.textContent = 'Game ends in a draw by stalemate!';
             }
@@ -1492,6 +1530,51 @@
             console.log(`Halfmove clock: ${halfmoveClock}`);
             console.log(`Moves until 50-move rule: ${50 - Math.floor(halfmoveClock / 2)}`);
         }
+        //function to generate a position hash
+        function generatePositionHash() {
+            // Create a string representation of the current position
+            let positionString = '';
+            
+            // Add board state
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    positionString += board[row][col] || 'empty';
+                    positionString += '|';
+                }
+            }
+            
+            // Add current turn
+            positionString += `turn:${currentTurn}|`;
+            
+            // Add castling rights
+            positionString += `castle:${castlingRights.white.kingside ? 'K' : ''}${castlingRights.white.queenside ? 'Q' : ''}${castlingRights.black.kingside ? 'k' : ''}${castlingRights.black.queenside ? 'q' : ''}|`;
+            
+            // Add en passant target
+            if (enPassantTarget) {
+                positionString += `ep:${enPassantTarget.row}-${enPassantTarget.col}|`;
+            } else {
+                positionString += 'ep:none|';
+            }
+            
+            return positionString;
+        }
+        //function to check for threefold repetition 
+        function isThreefoldRepetition() {
+            const currentPosition = generatePositionHash();
+            let count = 0;
+            
+            // Count how many times this position has occurred
+            for (const position of positionHistory) {
+                if (position === currentPosition) {
+                    count++;
+                }
+            }
+            
+            console.log(`Position repetition check: current count = ${count + 1}`);
+            return count >= 2; // Current position + 2 previous = 3 total
+        }
+
+        
 
 
         
