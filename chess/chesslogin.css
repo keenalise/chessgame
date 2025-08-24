@@ -653,3 +653,76 @@ body {
         font-size: 16px;
     }
 }
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .flip-board-container {
+        top: 10px;
+        left: 10px;
+    }
+    
+    .flip-board-btn {
+        padding: 10px 16px;
+        font-size: 12px;
+        min-width: 120px;
+    }
+}
+
+/* Game Review Styles */
+.review-content {
+    font-family: 'Courier New', monospace;
+}
+
+.review-content h4 {
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+}
+
+.review-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.review-content::-webkit-scrollbar-track {
+    background: #ecf0f1;
+    border-radius: 4px;
+}
+
+.review-content::-webkit-scrollbar-thumb {
+    background: #7f8c8d;
+    border-radius: 4px;
+}
+
+.review-content::-webkit-scrollbar-thumb:hover {
+    background: #5d6d7e;
+}
+
+.review-stat {
+    text-align: center;
+    color: #ecf0f1;
+}
+
+.review-stat .victory-stat-icon {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.review-stat .victory-stat-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.review-stat .victory-stat-label {
+    opacity: 0.8;
+    font-size: 0.9rem;
+}
+
+/* Review button styling */
+#reviewGameBtn {
+    background: linear-gradient(45deg, #9b59b6, #8e44ad) !important;
+}
+
+#reviewGameBtn:hover {
+    background: linear-gradient(45deg, #8e44ad, #9b59b6) !important;
+}

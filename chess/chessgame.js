@@ -1537,6 +1537,8 @@
             
             // Show modal
             modal.style.display = 'block';
+             // Enable game review button
+             enableGameReview();
         }
         //draw modal
         function showDrawModal(drawType = 'stalemate') {
@@ -1719,7 +1721,7 @@
                 if (currentMoveIndex === totalMoves - 1 && totalMoves > 0) {
                     currentMoveDisplay.textContent = 'Live';
                 } else {
-                    currentMoveDisplay.textContent = `${currentMoveIndex + 1}/${totalMoves}`;
+                    currentMoveDisplay.textContent = 'NAlize';
                 }
             }
         }
@@ -1728,7 +1730,7 @@
         // Function to go back to live position
         function goToLivePosition() {
             const totalMoves = gameStateHistory.length;
-            if (totalMoves => 0 && currentMoveIndex !== totalMoves - 1) {
+            if (totalMoves > 0 && currentMoveIndex !== totalMoves - 1) {
                 currentMoveIndex = totalMoves - 1;
                 restoreGameState(gameStateHistory[currentMoveIndex]);
                 updateNavigationButtons();
