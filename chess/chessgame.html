@@ -1,120 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>♔ KeenChess ♛</title>
-    <link rel="stylesheet" href="chessgame.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>♔ KeenChess ♛</title>
+  <link rel="stylesheet" href="chessgame.css">
+  <!-- Stockfish JS Engine -->
+  <script src="https://unpkg.com/stockfish.js@10.0.2/stockfish.js"></script>
 </head>
 <body>
-    <div class="flip-board-container">
-        <button id="flipBoardBtn" class="flip-board-btn auto-mode" onclick="toggleFlipMode()">
-            <span class="flip-icon">🔄</span>
-            <span id="flipBoardText">Auto Flip: ON</span>
-        </button>
-    </div>
-    <div class="container">
-        <h1 class="title">♔ KeenChess ♛</h1>
-        
-        <div class="info-panel">
-            <div id="turnIndicator" class="turn-indicator">White's Turn</div>
-            <div id="castlingInfo" class="castling-info">Castling: K Q k q</div>
-            <div class="controls">
-                <button class="btn btn-new" onclick="newGame()">New Game</button>
-                <button class="btn btn-undo" onclick="undoMove()">Undo</button>
-                <button class="btn btn-redo" onclick="redoMove()">Redo</button>
-            </div>
-        </div>
+  <!-- Flip board button -->
+  <div class="flip-board-container">
+    <button id="flipBoardBtn" class="flip-board-btn auto-mode" onclick="toggleFlipMode()">
+      <span class="flip-icon">🔄</span>
+      <span id="flipBoardText">Auto Flip: ON</span>
+    </button>
+  </div>
 
-        <div class="game-area">
-            <div class="board-container">
-                <div id="chessboard" class="chessboard"></div>
-            </div>
+  <div class="container">
+    <h1 class="title">♔ KeenChess ♛</h1>
 
-            <div class="move-history">
-                <h3>Move History</h3>
-                <!-- Navigation buttons -->
-    <div class="move-navigation">
-        <button id="prevMoveBtn" class="nav-btn" onclick="navigateMove(-1)" title="Previous Move">
-            ❮
-        </button>
-        <div class="move-counter">
-            <span id="currentMoveDisplay">Live</span>
-        </div>
-        <button id="nextMoveBtn" class="nav-btn" onclick="navigateMove(1)" title="Next Move">
-            ❯
-        </button>
-    </div>
-    
-    <div id="movesList" class="moves-list"></div>
-    <button class="btn btn-clear" onclick="clearMoveHistory()" style="margin-top: 10px; width: 100%;">Clear History</button>
-
-                
-            </div>
-        </div>
-
-        <div id="statusBar" class="status-bar">Ready to play - Double-click king for castling</div>
+    <!-- Info panel -->
+    <div class="info-panel">
+      <div id="turnIndicator" class="turn-indicator">White's Turn</div>
+      <div id="castlingInfo" class="castling-info">Castling: K Q k q</div>
+      <div class="controls">
+        <button class="btn btn-new" onclick="newGame()">New Game</button>
+        <button class="btn btn-undo" onclick="undoMove()">Undo</button>
+        <button class="btn btn-redo" onclick="redoMove()">Redo</button>
+      </div>
     </div>
 
-    <!-- Modals -->
-    <div id="promotionModal" class="modal">
-        <div class="modal-content">
-            <h2>Pawn Promotion</h2>
-            <p>Choose promotion piece:</p>
-            <div class="promotion-pieces">
-                <button class="promotion-btn" onclick="selectPromotion('queen')">Queen ♕</button>
-                <button class="promotion-btn" onclick="selectPromotion('rook')">Rook ♖</button>
-                <button class="promotion-btn" onclick="selectPromotion('bishop')">Bishop ♗</button>
-                <button class="promotion-btn" onclick="selectPromotion('knight')">Knight ♘</button>
-            </div>
+    <!-- Game area -->
+    <div class="game-area">
+      <div class="board-container">
+        <div id="chessboard" class="chessboard"></div>
+      </div>
+
+      <div class="move-history">
+        <h3>Move History</h3>
+        <div class="move-navigation">
+          <button id="prevMoveBtn" class="nav-btn" onclick="navigateMove(-1)" title="Previous Move">❮</button>
+          <div class="move-counter"><span id="currentMoveDisplay">Live</span></div>
+          <button id="nextMoveBtn" class="nav-btn" onclick="navigateMove(1)" title="Next Move">❯</button>
         </div>
+        <div id="movesList" class="moves-list"></div>
+        <button class="btn btn-clear" onclick="clearMoveHistory()" style="margin-top:10px;width:100%;">Clear History</button>
+      </div>
     </div>
 
-    <div id="castlingModal" class="modal">
-        <div class="modal-content">
-            <h2>Castle</h2>
-            <p>Choose castling side:</p>
-            <div class="modal-buttons">
-                <button id="kingsideCastle" class="btn" style="background: #9b59b6;" onclick="selectCastle('kingside')">Kingside (O-O)</button>
-                <button id="queensideCastle" class="btn" style="background: #9b59b6;" onclick="selectCastle('queenside')">Queenside (O-O-O)</button>
-                <button class="btn btn-clear" onclick="closeCastlingModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-    <!-- Victory Modal -->
-    <div id="victoryModal" class="victory-modal">
-        <div class="victory-content">
-            <div class="victory-header">
-                <span class="victory-close" onclick="closeVictoryModal()">&times;</span>
-                <h2 class="victory-title">Victory!</h2>
-            </div>
-            <div class="victory-body">
-                <div class="victory-message" id="victoryMessage">
-                    White wins by checkmate!
-                </div>
-                <div class="victory-stats">
-                    <div class="victory-stat">
-                        <div class="victory-stat-icon">⚡</div>
-                        <div class="victory-stat-number" id="moveCount">15</div>
-                        <div class="victory-stat-label">Moves</div>
-                        
-                    </div>
-                    <!-- div for game review -->
-                    <div class="victory-buttons">
-                        <button id="reviewGameBtn" class="victory-btn victory-btn-secondary" onclick="startGameReview()"
-                         style="background: linear-gradient(45deg, #9b59b6, #8e44ad);">Review Game</button>
-                        
-                    </div>
-                </div>
-                <div class="victory-buttons">
-                    <button class="victory-btn victory-btn-primary" onclick="newGame(); closeVictoryModal();">New Game</button>
-                    <button class="victory-btn victory-btn-secondary" onclick="newGame(); closeVictoryModal();">Rematch</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Status bar -->
+    <div id="statusBar" class="status-bar">Ready to play - Double-click king for castling</div>
+  </div>
 
-    <!-- External JS -->
-    <script src="chessgame.js"></script>
+  <!-- Pawn promotion modal -->
+  <div id="promotionModal" class="modal">
+    <div class="modal-content">
+      <h2>Pawn Promotion</h2>
+      <p>Choose promotion piece:</p>
+      <div class="promotion-pieces">
+        <button class="promotion-btn" onclick="selectPromotion('queen')">Queen ♕</button>
+        <button class="promotion-btn" onclick="selectPromotion('rook')">Rook ♖</button>
+        <button class="promotion-btn" onclick="selectPromotion('bishop')">Bishop ♗</button>
+        <button class="promotion-btn" onclick="selectPromotion('knight')">Knight ♘</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Castling modal -->
+  <div id="castlingModal" class="modal">
+    <div class="modal-content">
+      <h2>Castle</h2>
+      <p>Choose castling side:</p>
+      <div class="modal-buttons">
+        <button id="kingsideCastle" class="btn" style="background:#9b59b6;" onclick="selectCastle('kingside')">Kingside (O-O)</button>
+        <button id="queensideCastle" class="btn" style="background:#9b59b6;" onclick="selectCastle('queenside')">Queenside (O-O-O)</button>
+        <button class="btn btn-clear" onclick="closeCastlingModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory modal -->
+  <div id="victoryModal" class="victory-modal">
+    <div class="victory-content">
+      <div class="victory-header">
+        <span class="victory-close" onclick="closeVictoryModal()">&times;</span>
+        <h2 class="victory-title">Victory!</h2>
+      </div>
+      <div class="victory-body">
+        <div class="victory-message" id="victoryMessage">White wins by checkmate!</div>
+        <div class="victory-stats">
+          <div class="victory-stat">
+            <div class="victory-stat-icon">⚡</div>
+            <div class="victory-stat-number" id="moveCount">0</div>
+            <div class="victory-stat-label">Moves</div>
+          </div>
+        </div>
+        <!-- Game review button -->
+        <div class="victory-buttons">
+          <button id="reviewGameBtn" class="victory-btn victory-btn-secondary"
+            onclick="startGameReview()"
+            style="background:linear-gradient(45deg,#9b59b6,#8e44ad);">
+            Review Game
+          </button>
+        </div>
+        <div class="victory-buttons">
+          <button class="victory-btn victory-btn-primary" onclick="newGame();closeVictoryModal();">New Game</button>
+          <button class="victory-btn victory-btn-secondary" onclick="newGame();closeVictoryModal();">Rematch</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game logic -->
+  <script src="chessgame.js"></script>
 </body>
 </html>

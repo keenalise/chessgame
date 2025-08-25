@@ -678,3 +678,36 @@ body {
         min-width: 120px;
     }
 }
+/* Game Review Styles - Add to chessgame.css */
+
+.review-mode .chessboard {
+    border-color: #9b59b6;
+    box-shadow: 0 0 20px rgba(155, 89, 182, 0.5);
+}
+
+.review-mode .square:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.analysis-thinking {
+    animation: thinking 1.5s infinite;
+}
+
+@keyframes thinking {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Evaluation colors */
+.evaluation-positive {
+    background: linear-gradient(90deg, #95a5a6, #27ae60);
+}
+
+.evaluation-negative {
+    background: linear-gradient(90deg, #e74c3c, #95a5a6);
+}
+
+.evaluation-equal {
+    background: #95a5a6;
+}

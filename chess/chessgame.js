@@ -17,6 +17,207 @@
         // variables for move right left
         let currentMoveIndex = -1; // -1 means we're at the current live position
         let gameStateHistory = []; // Store complete game states
+        //stockfish
+        let stockfish = null;
+        let isAnalyzing = false;
+        let isGameReviewMode = false;
+        let gameReviewData = [];
+        let currentReviewMove = 0;
+        let reviewAnalysisDepth = 12; // Reduced for faster analysis
+        let stockfishReady = false;
+        let stockfishInitAttempts = 0;
+
+
+        
+        function initStockfish() {
+            try {
+                stockfish = new Worker("https://unpkg.com/stockfish.js/stockfish.js");
+                stockfishReady = false;
+
+                stockfish.onmessage = function (event) {
+                    const message = event.data ? event.data.toString() : event;
+                    console.log("Stockfish:", message);
+
+                    if (message.includes("uciok")) {
+                        stockfishReady = true;
+                        updateStatus("Stockfish engine ready.");
+                    }
+
+                    if (isAnalyzing && message.startsWith("info depth")) {
+                        // Here you can parse depth/score for display
+                    }
+
+                    if (isAnalyzing && message.startsWith("bestmove")) {
+                        isAnalyzing = false;
+                        console.log("Best move:", message);
+                    }
+                };
+
+                stockfish.postMessage("uci");
+
+            } catch (error) {
+                console.error("Stockfish init error:", error);
+                updateStatus("Failed to initialize Stockfish engine.");
+            }
+        }
+
+        function startGameReview() {
+            if (!stockfish || !stockfishReady) {
+                alert("Chess engine is not available. Please refresh the page and wait for it to load.");
+                return;
+            }
+
+            isGameReviewMode = true;
+            currentReviewMove = 0;
+            updateStatus("Starting game review with Stockfish...");
+
+            reviewNextMove();
+        }
+
+        // Stockfish Review Handler
+        function reviewNextMove() {
+            if (currentReviewMove >= moveHistory.length) {
+                updateStatus("Game review finished.");
+                isGameReviewMode = false;
+                // After analysis, enable download
+                createDownloadButton();
+                return;
+            }
+        
+            const fen = generateFENFromHistory(currentReviewMove);
+            stockfish.onmessage = function (event) {
+                const message = event.data ? event.data.toString() : event;
+                if (message.startsWith("info depth")) {
+                    // Parse evaluation (cp = centipawn, mate = checkmate)
+                    if (message.includes("score")) {
+                        const evalMatch = message.match(/score (\w+) (-?\d+)/);
+                        if (evalMatch) {
+                            const type = evalMatch[1];
+                            const value = evalMatch[2];
+                            gameReviewData.push({
+                                move: currentReviewMove + 1,
+                                fen,
+                                evaluation: type === "cp" ? (value / 100) : `Mate in ${value}`
+                            });
+                        }
+                    }
+                }
+                if (message.startsWith("bestmove")) {
+                    currentReviewMove++;
+                    reviewNextMove(); // go to next move
+                }
+            };
+        
+            stockfish.postMessage("position fen " + fen);
+            stockfish.postMessage("go depth " + reviewAnalysisDepth);
+        }
+        
+
+
+        // Dummy helper for FEN (you should already have this function in your code)
+        function generateFENFromHistory(index) {
+            // Start with fresh board and replay moves up to index
+            let tempBoard = Array(8).fill(null).map(() => Array(8).fill(null));
+            setupPiecesOnBoard(tempBoard); // helper to place initial pieces
+        
+            for (let i = 0; i <= index; i++) {
+                const move = moveHistory[i];
+                if (!move) continue;
+        
+                // Apply moves like in your movePiece function (simplified for review)
+                const piece = move.piece;
+                tempBoard[move.from.row][move.from.col] = null;
+                tempBoard[move.to.row][move.to.col] = piece;
+            }
+        
+            // Convert board to FEN
+            return boardToFEN(tempBoard, currentTurn);
+        }
+
+        // Helper to convert board matrix into FEN notation
+        function boardToFEN(b, turn) {
+            let fen = "";
+            for (let row = 0; row < 8; row++) {
+                let emptyCount = 0;
+                for (let col = 0; col < 8; col++) {
+                    const piece = b[row][col];
+                    if (!piece) {
+                        emptyCount++;
+                    } else {
+                        if (emptyCount > 0) {
+                            fen += emptyCount;
+                            emptyCount = 0;
+                        }
+                        fen += pieceToFEN(piece);
+                    }
+                }
+                if (emptyCount > 0) fen += emptyCount;
+                if (row < 7) fen += "/";
+            }
+            fen += ` ${turn[0]} - - 0 1`; // basic placeholders
+            return fen;
+        }
+        // Convert internal piece name to FEN character
+        function pieceToFEN(piece) {
+            const mapping = {
+                white_pawn: "P", white_rook: "R", white_knight: "N", white_bishop: "B",
+                white_queen: "Q", white_king: "K",
+                black_pawn: "p", black_rook: "r", black_knight: "n", black_bishop: "b",
+                black_queen: "q", black_king: "k"
+            };
+            return mapping[piece] || "?";
+        }
+
+        // Add a button to download review results
+        function createDownloadButton() {
+            const container = document.querySelector(".victory-buttons");
+            let btn = document.getElementById("downloadReviewBtn");
+            if (btn) return; // avoid duplicates
+        
+            btn = document.createElement("button");
+            btn.id = "downloadReviewBtn";
+            btn.className = "victory-btn victory-btn-secondary";
+            btn.textContent = "Download Review";
+            btn.onclick = downloadReviewFile;
+            container.appendChild(btn);
+        }
+        
+        // Download review as text file
+        function downloadReviewFile() {
+            let content = "KeenChess Game Review\n\n";
+            gameReviewData.forEach(r => {
+                content += `Move ${r.move}: Eval = ${r.evaluation}\nFEN: ${r.fen}\n\n`;
+            });
+        
+            const blob = new Blob([content], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "game_review.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+
+
+
+
+
+
+        
+
+        // Update status display
+        function updateStatus(msg) {
+            const statusBar = document.getElementById("statusBar");
+            if (statusBar) statusBar.textContent = msg;
+        }
+
+        // Initialize game + Stockfish on page load
+        window.addEventListener("load", () => {
+            initGame();
+            initStockfish();
+        });
+
 
 
 
@@ -1427,9 +1628,7 @@
         }
 
 
-        function updateStatus(message) {
-            document.getElementById('statusBar').textContent = message;
-        }
+        
 
         function showMessage(title, message) {
             alert(`${title}: ${message}`);
@@ -1743,6 +1942,634 @@
                 chessboard.style.opacity = '1';
             }
         }
+
+        // Initialize Stockfish engine
+        function initGame() {
+            setupBoard();
+            setupPieces();
+            updateCastlingDisplay();
+            updateTurnDisplay();
+            
+            // Initialize navigation
+            gameStateHistory = [];
+            currentMoveIndex = -1;
+            saveGameState();
+            currentMoveIndex = 0;
+            updateNavigationButtons();
+            
+            // Initialize Stockfish with proper delay and retry mechanism
+            console.log('Starting Stockfish initialization...');
+            setTimeout(() => {
+                initStockfishWithRetry();
+            }, 1500);
+        }
+        
+        
+        
+        // Show error message if Stockfish fails to load
+        function showStockfishError() {
+            console.warn('Stockfish failed to load - review feature will be limited');
+            // You can add a visual indicator here if needed
+        }
+        
+        // Handle messages from Stockfish
+        function handleStockfishMessage(event) {
+            const message = event.data || event;
+            console.log('Stockfish:', message);
+            
+            try {
+                if (message === 'uciok') {
+                    console.log('✅ UCI protocol initialized');
+                } else if (message === 'readyok') {
+                    stockfishReady = true;
+                    console.log('✅ Stockfish engine is ready!');
+                    
+                    // Configure engine settings for better performance
+                    stockfish.postMessage('setoption name Hash value 64');
+                    stockfish.postMessage('setoption name Threads value 1');
+                    stockfish.postMessage('setoption name Ponder value false');
+                    
+                } else if (message.includes('bestmove')) {
+                    isAnalyzing = false;
+                    if (isGameReviewMode) {
+                        processAnalysisResult(message);
+                    }
+                } else if (message.includes('info depth') && message.includes('score')) {
+                    if (isGameReviewMode) {
+                        parseAnalysisInfo(message);
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling Stockfish message:', error);
+            }
+        }
+        
+        // Parse analysis information from Stockfish
+        function parseAnalysisInfo(message) {
+            if (!message.includes('pv')) return;
+            
+            const parts = message.split(' ');
+            let depth = 0;
+            let score = null;
+            let pv = [];
+            let nodes = 0;
+            
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i] === 'depth') {
+                    depth = parseInt(parts[i + 1]);
+                } else if (parts[i] === 'score') {
+                    if (parts[i + 1] === 'cp') {
+                        score = parseInt(parts[i + 2]) / 100;
+                    } else if (parts[i + 1] === 'mate') {
+                        score = `M${parts[i + 2]}`;
+                    }
+                } else if (parts[i] === 'nodes') {
+                    nodes = parseInt(parts[i + 1]);
+                } else if (parts[i] === 'pv') {
+                    pv = parts.slice(i + 1, i + 8); // Take first 7 moves
+                    break;
+                }
+            }
+            
+            // Only update display for deeper analysis
+            if (depth >= Math.min(8, reviewAnalysisDepth)) {
+                updateReviewAnalysis(depth, score, pv, nodes);
+            }
+        }
+        
+        // Start game review with Stockfish
+        
+        
+        // Create the review interface
+        function createReviewInterface() {
+            const moveHistoryContainer = document.querySelector('.move-history');
+            
+            if (!moveHistoryContainer.dataset.originalContent) {
+                moveHistoryContainer.dataset.originalContent = moveHistoryContainer.innerHTML;
+            }
+            
+            moveHistoryContainer.innerHTML = `
+                <div class="review-header">
+                    <h3>🔍 Game Review</h3>
+                    <button class="btn btn-clear" onclick="exitGameReview()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Exit</button>
+                </div>
+                
+                <div class="review-controls">
+                    <div class="review-navigation">
+                        <button id="reviewPrevBtn" class="nav-btn" onclick="reviewPreviousMove()" title="Previous Move">❮</button>
+                        <div class="move-counter">
+                            <span id="reviewMoveDisplay">Move 1</span>
+                        </div>
+                        <button id="reviewNextBtn" class="nav-btn" onclick="reviewNextMove()" title="Next Move">❯</button>
+                    </div>
+                    
+                    <div class="analysis-controls">
+                        <label style="font-size: 12px;">Depth:</label>
+                        <select id="depthSelect" onchange="changeAnalysisDepth()" style="font-size: 12px; margin-left: 5px;">
+                            <option value="8">Fast (8)</option>
+                            <option value="12" selected>Medium (12)</option>
+                            <option value="16">Deep (16)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="analysis-panel">
+                    <div class="analysis-header">
+                        <h4>Engine Analysis</h4>
+                        <div id="analysisStatus" class="analysis-status">Ready</div>
+                    </div>
+                    
+                    <div class="evaluation-section">
+                        <div class="eval-display">
+                            <span class="eval-label">Evaluation:</span>
+                            <span id="evaluationScore" class="eval-score">0.00</span>
+                        </div>
+                        
+                        <div class="eval-bar-container">
+                            <div id="evalBar" class="eval-bar">
+                                <div id="evalFill" class="eval-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="best-move-section">
+                        <div class="best-move-display">
+                            <span class="bm-label">Best Move:</span>
+                            <span id="bestMove" class="best-move">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="pv-section">
+                        <div class="pv-label">Principal Variation:</div>
+                        <div id="pvMoves" class="pv-moves">-</div>
+                    </div>
+                    
+                    <div class="analysis-info">
+                        <span id="analysisDepth" class="info-text">Depth: -</span>
+                        <span id="analysisNodes" class="info-text">Nodes: -</span>
+                    </div>
+                </div>
+            `;
+            
+            addReviewStyles();
+        }
+        
+        // Add CSS styles for the review interface
+        function addReviewStyles() {
+            if (document.getElementById('reviewStyles')) return;
+            
+            const style = document.createElement('style');
+            style.id = 'reviewStyles';
+            style.textContent = `
+                .review-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                    padding-bottom: 8px;
+                    border-bottom: 2px solid #3498db;
+                }
+                
+                .review-header h3 {
+                    margin: 0;
+                    font-size: 1.1rem;
+                }
+                
+                .review-controls {
+                    margin-bottom: 12px;
+                }
+                
+                .analysis-controls {
+                    margin-top: 8px;
+                    text-align: center;
+                }
+                
+                .analysis-controls select {
+                    background: #34495e;
+                    color: #ecf0f1;
+                    border: 1px solid #3498db;
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                }
+                
+                .analysis-panel {
+                    background: rgba(52, 73, 94, 0.3);
+                    border-radius: 10px;
+                    padding: 12px;
+                    margin-bottom: 10px;
+                }
+                
+                .analysis-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                }
+                
+                .analysis-header h4 {
+                    margin: 0;
+                    color: #3498db;
+                    font-size: 1rem;
+                }
+                
+                .analysis-status {
+                    font-size: 0.8rem;
+                    color: #f39c12;
+                    font-weight: bold;
+                }
+                
+                .evaluation-section {
+                    margin: 10px 0;
+                }
+                
+                .eval-display {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 8px;
+                }
+                
+                .eval-label {
+                    font-size: 0.9rem;
+                    color: #ecf0f1;
+                }
+                
+                .eval-score {
+                    font-size: 1.1rem;
+                    font-weight: bold;
+                    color: #3498db;
+                    font-family: 'Courier New', monospace;
+                }
+                
+                .eval-bar-container {
+                    height: 20px;
+                    background: #2c3e50;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    border: 2px solid #34495e;
+                }
+                
+                .eval-bar {
+                    height: 100%;
+                    position: relative;
+                }
+                
+                .eval-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, #e74c3c, #f39c12, #27ae60);
+                    transition: all 0.5s ease;
+                    width: 50%;
+                }
+                
+                .best-move-section {
+                    margin: 10px 0;
+                    padding: 8px;
+                    background: rgba(236, 240, 241, 0.05);
+                    border-radius: 6px;
+                }
+                
+                .best-move-display {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .bm-label {
+                    font-size: 0.9rem;
+                    color: #ecf0f1;
+                }
+                
+                .best-move {
+                    font-size: 1rem;
+                    font-weight: bold;
+                    color: #27ae60;
+                    font-family: 'Courier New', monospace;
+                }
+                
+                .pv-section {
+                    margin: 10px 0;
+                    padding: 8px;
+                    background: rgba(236, 240, 241, 0.05);
+                    border-radius: 6px;
+                }
+                
+                .pv-label {
+                    font-size: 0.85rem;
+                    color: #ecf0f1;
+                    margin-bottom: 5px;
+                }
+                
+                .pv-moves {
+                    font-family: 'Courier New', monospace;
+                    color: #3498db;
+                    font-size: 0.85rem;
+                    line-height: 1.3;
+                }
+                
+                .analysis-info {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 10px;
+                    padding-top: 8px;
+                    border-top: 1px solid rgba(236, 240, 241, 0.1);
+                }
+                
+                .info-text {
+                    font-size: 0.75rem;
+                    color: #95a5a6;
+                }
+                
+                .analyzing {
+                    animation: pulse 1.5s infinite;
+                }
+                
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.6; }
+                }
+            `;
+            
+            document.head.appendChild(style);
+        }
+        
+        // Start analyzing the game from the beginning
+        function analyzeGameFromStart() {
+            currentReviewMove = 0;
+            gameReviewData = [];
+            
+            // Go to starting position
+            const initialState = gameStateHistory[0];
+            restoreGameState(initialState);
+            drawPieces();
+            clearHighlights();
+            
+            updateReviewDisplay();
+            analyzeCurrentPosition();
+        }
+        
+        // Analyze the current position
+        function analyzeCurrentPosition() {
+            if (!stockfish || !stockfishReady) {
+                document.getElementById('analysisStatus').textContent = 'Engine not ready';
+                return;
+            }
+            
+            const statusEl = document.getElementById('analysisStatus');
+            statusEl.textContent = 'Analyzing...';
+            statusEl.classList.add('analyzing');
+            
+            isAnalyzing = true;
+            
+            try {
+                const fen = generateFEN();
+                console.log('Analyzing position:', fen);
+                
+                // Clear previous analysis
+                stockfish.postMessage('stop');
+                
+                // Set new position
+                stockfish.postMessage(`position fen ${fen}`);
+                
+                // Start analysis
+                stockfish.postMessage(`go depth ${reviewAnalysisDepth}`);
+                
+            } catch (error) {
+                console.error('Error starting analysis:', error);
+                statusEl.textContent = 'Analysis error';
+                statusEl.classList.remove('analyzing');
+            }
+        }
+        
+        // Generate FEN string from current board position
+        function generateFEN() {
+            let fen = '';
+            
+            // Board position
+            for (let row = 0; row < 8; row++) {
+                let emptyCount = 0;
+                for (let col = 0; col < 8; col++) {
+                    const piece = board[row][col];
+                    if (piece) {
+                        if (emptyCount > 0) {
+                            fen += emptyCount;
+                            emptyCount = 0;
+                        }
+                        
+                        const [color, type] = piece.split('_');
+                        let pieceChar = type[0].toUpperCase();
+                        if (type === 'knight') pieceChar = 'N';
+                        if (color === 'black') pieceChar = pieceChar.toLowerCase();
+                        
+                        fen += pieceChar;
+                    } else {
+                        emptyCount++;
+                    }
+                }
+                if (emptyCount > 0) fen += emptyCount;
+                if (row < 7) fen += '/';
+            }
+            
+            // Active color
+            fen += ` ${currentTurn === 'white' ? 'w' : 'b'}`;
+            
+            // Castling availability
+            let castling = '';
+            if (castlingRights.white.kingside) castling += 'K';
+            if (castlingRights.white.queenside) castling += 'Q';
+            if (castlingRights.black.kingside) castling += 'k';
+            if (castlingRights.black.queenside) castling += 'q';
+            fen += ` ${castling || '-'}`;
+            
+            // En passant target square
+            let epTarget = '-';
+            if (enPassantTarget) {
+                epTarget = String.fromCharCode(97 + enPassantTarget.col) + (8 - enPassantTarget.row);
+            }
+            fen += ` ${epTarget}`;
+            
+            // Halfmove clock and fullmove number
+            const fullmove = Math.ceil((moveHistory.length + 1) / 2);
+            fen += ` ${halfmoveClock} ${fullmove}`;
+            
+            return fen;
+        }
+        
+        // Process the analysis result from Stockfish
+        function processAnalysisResult(message) {
+            const parts = message.split(' ');
+            const bestMoveIndex = parts.indexOf('bestmove');
+            
+            if (bestMoveIndex !== -1 && bestMoveIndex + 1 < parts.length) {
+                const bestMove = parts[bestMoveIndex + 1];
+                
+                document.getElementById('bestMove').textContent = bestMove;
+                
+                const statusEl = document.getElementById('analysisStatus');
+                statusEl.textContent = 'Complete';
+                statusEl.classList.remove('analyzing');
+                
+                console.log('Analysis complete, best move:', bestMove);
+            }
+        }
+        
+        // Update the review display with analysis results
+        function updateReviewAnalysis(depth, score, pv, nodes) {
+            const evaluationScore = document.getElementById('evaluationScore');
+            const evalFill = document.getElementById('evalFill');
+            const pvMoves = document.getElementById('pvMoves');
+            const analysisDepth = document.getElementById('analysisDepth');
+            const analysisNodes = document.getElementById('analysisNodes');
+            
+            // Update evaluation
+            if (typeof score === 'number') {
+                const displayScore = score.toFixed(2);
+                evaluationScore.textContent = (score >= 0 ? '+' : '') + displayScore;
+                
+                // Update evaluation bar
+                const clampedScore = Math.max(-5, Math.min(5, score));
+                const percentage = ((clampedScore + 5) / 10) * 100;
+                evalFill.style.width = `${percentage}%`;
+                
+                // Color based on advantage
+                if (score > 1) {
+                    evalFill.style.background = 'linear-gradient(90deg, #95a5a6, #27ae60)';
+                } else if (score < -1) {
+                    evalFill.style.background = 'linear-gradient(90deg, #e74c3c, #95a5a6)';
+                } else {
+                    evalFill.style.background = '#95a5a6';
+                }
+            } else if (typeof score === 'string') {
+                evaluationScore.textContent = score;
+                evalFill.style.width = score.includes('-') ? '0%' : '100%';
+            }
+            
+            // Update principal variation
+            if (pv && pv.length > 0) {
+                pvMoves.textContent = pv.join(' ');
+            }
+            
+            // Update analysis info
+            if (analysisDepth) {
+                analysisDepth.textContent = `Depth: ${depth}`;
+            }
+            
+            if (analysisNodes && nodes) {
+                const nodeText = nodes > 1000000 ? `${(nodes/1000000).toFixed(1)}M` : 
+                                nodes > 1000 ? `${(nodes/1000).toFixed(0)}K` : nodes.toString();
+                analysisNodes.textContent = `Nodes: ${nodeText}`;
+            }
+        }
+        
+        // Navigation functions
+        function reviewPreviousMove() {
+            if (currentReviewMove > 0) {
+                currentReviewMove--;
+                loadReviewPosition();
+            }
+        }
+        
+        
+        
+        // Load a specific review position
+        function loadReviewPosition() {
+            const gameState = gameStateHistory[currentReviewMove];
+            restoreGameState(gameState);
+            drawPieces();
+            clearHighlights();
+            
+            updateReviewDisplay();
+            analyzeCurrentPosition();
+            
+            // Disable board interaction
+            const chessboard = document.getElementById('chessboard');
+            chessboard.style.pointerEvents = 'none';
+            chessboard.style.opacity = '0.8';
+        }
+        
+        // Update the review display
+        function updateReviewDisplay() {
+            const reviewMoveDisplay = document.getElementById('reviewMoveDisplay');
+            const reviewPrevBtn = document.getElementById('reviewPrevBtn');
+            const reviewNextBtn = document.getElementById('reviewNextBtn');
+            
+            if (reviewMoveDisplay) {
+                reviewMoveDisplay.textContent = `Move ${currentReviewMove + 1}`;
+            }
+            
+            if (reviewPrevBtn) {
+                reviewPrevBtn.disabled = currentReviewMove === 0;
+            }
+            
+            if (reviewNextBtn) {
+                reviewNextBtn.disabled = currentReviewMove >= gameStateHistory.length - 1;
+            }
+            
+            updateTurnDisplay();
+            updateCastlingDisplay();
+        }
+        
+        // Change analysis depth
+        function changeAnalysisDepth() {
+            const depthSelect = document.getElementById('depthSelect');
+            reviewAnalysisDepth = parseInt(depthSelect.value);
+            
+            if (isGameReviewMode && stockfish && stockfishReady) {
+                analyzeCurrentPosition();
+            }
+        }
+        
+        // Exit game review mode
+        function exitGameReview() {
+            isGameReviewMode = false;
+            
+            // Stop any ongoing analysis
+            if (stockfish && isAnalyzing) {
+                stockfish.postMessage('stop');
+                isAnalyzing = false;
+            }
+            
+            // Restore original interface
+            const moveHistoryContainer = document.querySelector('.move-history');
+            const originalContent = moveHistoryContainer.dataset.originalContent;
+            
+            if (originalContent) {
+                moveHistoryContainer.innerHTML = originalContent;
+            }
+            
+            // Remove review styles
+            const reviewStyles = document.getElementById('reviewStyles');
+            if (reviewStyles) {
+                reviewStyles.remove();
+            }
+            
+            // Go back to live position
+            goToLivePosition();
+            
+            // Re-enable board interaction
+            const chessboard = document.getElementById('chessboard');
+            chessboard.style.pointerEvents = 'auto';
+            chessboard.style.opacity = '1';
+        }
+        
+        // Enable the review button (called when game ends)
+        function enableGameReview() {
+            const reviewBtn = document.getElementById('reviewGameBtn');
+            if (reviewBtn) {
+                reviewBtn.style.display = 'block';
+                reviewBtn.disabled = false;
+            }
+        }
+
+
+
+
+        
+
+
+        
+
+
+        
         
         
 
@@ -1755,6 +2582,5 @@
         
         
 
-        // Initialize game when page loads
-        window.addEventListener('load', initGame);
+        
     
