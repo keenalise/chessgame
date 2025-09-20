@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>♔ KeenChess ♛</title>
   <link rel="stylesheet" href="chessgame.css">
-  <!-- Stockfish JS Engine -->
-  <script src="https://unpkg.com/stockfish.js@10.0.2/stockfish.js"></script>
+  
+
 </head>
 <body>
   <!-- Flip board button -->
@@ -51,6 +51,7 @@
 
     <!-- Status bar -->
     <div id="statusBar" class="status-bar">Ready to play - Double-click king for castling</div>
+    <div id="stockfishStatus" class="status-bar" style="margin-top:5px;font-size:0.95em;color:#f39c12;">Engine: Initializing...</div>
   </div>
 
   <!-- Pawn promotion modal -->
@@ -114,5 +115,9 @@
 
   <!-- Game logic -->
   <script src="chessgame.js"></script>
+  <!-- Stockfish helper (creates a same-origin-safe worker via Blob) -->
+  <script src="https://cdn.jsdelivr.net/npm/stockfish/stockfish.js"></script>
+
+   
 </body>
 </html>

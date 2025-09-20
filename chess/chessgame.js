@@ -1,5 +1,4 @@
-
-        // Game state
+// Game state
         let board = Array(8).fill(null).map(() => Array(8).fill(null));
         let selectedPiece = null;
         let currentTurn = 'white';
@@ -19,6 +18,35 @@
         let gameStateHistory = []; // Store complete game states
         //stockfish
         let stockfish = null;
+        
+        // Create a same-origin-safe Stockfish instance.
+        // Requires `stockfish.js` to be included in HTML which exposes global STOCKFISH()
+        function createStockfishInstance() {
+            try {
+                if (typeof STOCKFISH === 'function') {
+                    stockfish = STOCKFISH();
+                    return true;
+                }
+                // Some builds expose global 'Stockfish' instead
+                if (typeof Stockfish === 'function') {
+                    stockfish = Stockfish();
+                    return true;
+                }
+                // Fallback: try to create a Worker directly if available (not cross-origin)
+                if (typeof Worker !== 'undefined') {
+                    try {
+                        stockfish = new Worker('stockfish.wasm.js');
+                        return true;
+                    } catch (e) {
+                        console.warn('Direct Worker creation failed:', e);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to create Stockfish instance:', error);
+            }
+            stockfish = null;
+            return false;
+        }
         let isAnalyzing = false;
         let isGameReviewMode = false;
         let gameReviewData = [];
@@ -31,48 +59,39 @@
         
         function initStockfish() {
             try {
-                stockfish = new Worker("https://unpkg.com/stockfish.js/stockfish.js");
+                updateStockfishStatus("Initializing...", false);
                 stockfishReady = false;
-
-                stockfish.onmessage = function (event) {
-                    const message = event.data ? event.data.toString() : event;
-                    console.log("Stockfish:", message);
-
-                    if (message.includes("uciok")) {
-                        stockfishReady = true;
-                        updateStatus("Stockfish engine ready.");
+                if (!stockfish) {
+                    const created = createStockfishInstance();
+                    if (!created) {
+                        throw new Error('Stockfish instance unavailable');
                     }
-
-                    if (isAnalyzing && message.startsWith("info depth")) {
-                        // Here you can parse depth/score for display
-                    }
-
-                    if (isAnalyzing && message.startsWith("bestmove")) {
-                        isAnalyzing = false;
-                        console.log("Best move:", message);
-                    }
-                };
-
+                }
+                stockfish.onmessage = handleStockfishMessage;
                 stockfish.postMessage("uci");
-
+                stockfish.postMessage("isready");
             } catch (error) {
-                console.error("Stockfish init error:", error);
-                updateStatus("Failed to initialize Stockfish engine.");
+                updateStockfishStatus("Failed to initialize", false);
             }
         }
+        
+        
+          
 
-        function startGameReview() {
-            if (!stockfish || !stockfishReady) {
-                alert("Chess engine is not available. Please refresh the page and wait for it to load.");
-                return;
-            }
-
-            isGameReviewMode = true;
-            currentReviewMove = 0;
-            updateStatus("Starting game review with Stockfish...");
-
-            reviewNextMove();
+    function startGameReview() {
+        console.log("Review button clicked");
+        if (!stockfish || !stockfishReady) {
+            alert("Chess engine not ready.");
+            return;
         }
+        isGameReviewMode = true;
+        currentReviewMove = 0;
+        gameReviewData = [];
+        updateStatus("Starting game review with Stockfish...");
+        createReviewInterface();
+        analyzeGameFromStart(); // <-- Analyze all moves from start
+    }
+          
 
         // Stockfish Review Handler
         function reviewNextMove() {
@@ -237,19 +256,19 @@
         };
 
         // Initialize game
-        function initGame() {
-            setupBoard();
-            setupPieces();
-            updateCastlingDisplay();
-            updateTurnDisplay();
+        // function initGame() {
+        //     setupBoard();
+        //     setupPieces();
+        //     updateCastlingDisplay();
+        //     updateTurnDisplay();
             
-            // Initialize navigation
-            gameStateHistory = [];
-            currentMoveIndex = -1;
-            saveGameState();
-            currentMoveIndex = 0; // Start at the first position
-            updateNavigationButtons();
-        }
+        //     // Initialize navigation
+        //     gameStateHistory = [];
+        //     currentMoveIndex = -1;
+        //     saveGameState();
+        //     currentMoveIndex = 0; // Start at the first position
+        //     updateNavigationButtons();
+        // }
 
         function setupBoard() {
             const chessboard = document.getElementById('chessboard');
@@ -1948,10 +1967,9 @@
             setupBoard();
             setupPieces();
             updateCastlingDisplay();
-            updateTurnDisplay();
+                       updateTurnDisplay();
             
             // Initialize navigation
-            gameStateHistory = [];
             currentMoveIndex = -1;
             saveGameState();
             currentMoveIndex = 0;
@@ -1960,10 +1978,10 @@
             // Initialize Stockfish with proper delay and retry mechanism
             console.log('Starting Stockfish initialization...');
             setTimeout(() => {
-                initStockfishWithRetry();
+                initStockfish();
+
             }, 1500);
         }
-        
         
         
         // Show error message if Stockfish fails to load
@@ -1974,29 +1992,31 @@
         
         // Handle messages from Stockfish
         function handleStockfishMessage(event) {
-            const message = event.data || event;
-            console.log('Stockfish:', message);
+            const message = (event && event.data ? event.data : event) + '';
+            const trimmed = message.trim();
+            console.log('Stockfish:', trimmed);
             
             try {
-                if (message === 'uciok') {
-                    console.log('✅ UCI protocol initialized');
-                } else if (message === 'readyok') {
+                if (trimmed.includes('uciok')) {
+                    updateStockfishStatus("UCI protocol initialized", false);
+                    stockfish.postMessage('isready');
+                } else if (trimmed.includes('readyok')) {
                     stockfishReady = true;
-                    console.log('✅ Stockfish engine is ready!');
+                    updateStockfishStatus("Ready!", true);
                     
                     // Configure engine settings for better performance
                     stockfish.postMessage('setoption name Hash value 64');
                     stockfish.postMessage('setoption name Threads value 1');
                     stockfish.postMessage('setoption name Ponder value false');
                     
-                } else if (message.includes('bestmove')) {
+                } else if (trimmed.includes('bestmove')) {
                     isAnalyzing = false;
                     if (isGameReviewMode) {
-                        processAnalysisResult(message);
+                        processAnalysisResult(trimmed);
                     }
-                } else if (message.includes('info depth') && message.includes('score')) {
+                } else if (trimmed.includes('info depth') && trimmed.includes('score')) {
                     if (isGameReviewMode) {
-                        parseAnalysisInfo(message);
+                        parseAnalysisInfo(trimmed);
                     }
                 }
             } catch (error) {
@@ -2041,19 +2061,97 @@
         
         
         // Create the review interface
+        // function createReviewInterface() {
+        //     const moveHistoryContainer = document.querySelector('.move-history');
+            
+        //     if (!moveHistoryContainer.dataset.originalContent) {
+        //         moveHistoryContainer.dataset.originalContent = moveHistoryContainer.innerHTML;
+        //     }
+            
+        //     moveHistoryContainer.innerHTML = `
+        //         <div class="review-header">
+        //             <h3>🔍 Game Review</h3>
+        //             <button class="btn btn-clear" onclick="exitGameReview()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Exit</button>
+        //         </div>
+                
+        //         <div class="review-controls">
+        //             <div class="review-navigation">
+        //                 <button id="reviewPrevBtn" class="nav-btn" onclick="reviewPreviousMove()" title="Previous Move">❮</button>
+        //                 <div class="move-counter">
+        //                     <span id="reviewMoveDisplay">Move 1</span>
+        //                 </div>
+        //                 <button id="reviewNextBtn" class="nav-btn" onclick="reviewNextMove()" title="Next Move">❯</button>
+        //             </div>
+                    
+        //             <div class="analysis-controls">
+        //                 <label style="font-size: 12px;">Depth:</label>
+        //                 <select id="depthSelect" onchange="changeAnalysisDepth()" style="font-size: 12px; margin-left: 5px;">
+        //                     <option value="8">Fast (8)</option>
+        //                     <option value="12" selected>Medium (12)</option>
+        //                     <option value="16">Deep (16)</option>
+        //                 </select>
+        //             </div>
+        //         </div>
+                
+        //         <div class="analysis-panel">
+        //             <div class="analysis-header">
+        //                 <h4>Engine Analysis</h4>
+        //                 <div id="analysisStatus" class="analysis-status">Ready</div>
+        //             </div>
+                    
+        //             <div class="evaluation-section">
+        //                 <div class="eval-display">
+        //                     <span class="eval-label">Evaluation:</span>
+        //                     <span id="evaluationScore" class="eval-score">0.00</span>
+        //                 </div>
+                        
+        //                 <div class="eval-bar-container">
+        //                     <div id="evalBar" class="eval-bar">
+        //                         <div id="evalFill" class="eval-fill"></div>
+        //                     </div>
+        //                 </div>
+        //             </div>
+                    
+        //             <div class="best-move-section">
+        //                 <div class="best-move-display">
+        //                     <span class="bm-label">Best Move:</span>
+        //                     <span id="bestMove" class="best-move">-</span>
+        //                 </div>
+        //             </div>
+                    
+        //             <div class="pv-section">
+        //                 <div class="pv-label">Principal Variation:</div>
+        //                 <div id="pvMoves" class="pv-moves">-</div>
+        //             </div>
+                    
+        //             <div class="analysis-info">
+        //                 <span id="analysisDepth" class="info-text">Depth: -</span>
+        //                 <span id="analysisNodes" class="info-text">Nodes: -</span>
+        //             </div>
+        //         </div>
+        //     `;
+            
+        //     addReviewStyles();
+        //      // Add event listeners for navigation
+        //     document.getElementById('reviewPrevBtn').onclick = () => reviewPreviousMove();
+        //     document.getElementById('reviewNextBtn').onclick = () => reviewNextMove();
+                
+        // }
+        
         function createReviewInterface() {
-            const moveHistoryContainer = document.querySelector('.move-history');
-            
-            if (!moveHistoryContainer.dataset.originalContent) {
-                moveHistoryContainer.dataset.originalContent = moveHistoryContainer.innerHTML;
+            const moveHistoryPanel = document.querySelector('.move-history');
+            if (!moveHistoryPanel) return;
+
+            // Save original content for exit
+            if (!moveHistoryPanel.dataset.originalContent) {
+                moveHistoryPanel.dataset.originalContent = moveHistoryPanel.innerHTML;
             }
-            
-            moveHistoryContainer.innerHTML = `
+
+            moveHistoryPanel.innerHTML = `
                 <div class="review-header">
                     <h3>🔍 Game Review</h3>
                     <button class="btn btn-clear" onclick="exitGameReview()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Exit</button>
                 </div>
-                
                 <div class="review-controls">
                     <div class="review-navigation">
                         <button id="reviewPrevBtn" class="nav-btn" onclick="reviewPreviousMove()" title="Previous Move">❮</button>
@@ -2062,7 +2160,6 @@
                         </div>
                         <button id="reviewNextBtn" class="nav-btn" onclick="reviewNextMove()" title="Next Move">❯</button>
                     </div>
-                    
                     <div class="analysis-controls">
                         <label style="font-size: 12px;">Depth:</label>
                         <select id="depthSelect" onchange="changeAnalysisDepth()" style="font-size: 12px; margin-left: 5px;">
@@ -2072,48 +2169,42 @@
                         </select>
                     </div>
                 </div>
-                
                 <div class="analysis-panel">
                     <div class="analysis-header">
                         <h4>Engine Analysis</h4>
                         <div id="analysisStatus" class="analysis-status">Ready</div>
                     </div>
-                    
                     <div class="evaluation-section">
                         <div class="eval-display">
                             <span class="eval-label">Evaluation:</span>
                             <span id="evaluationScore" class="eval-score">0.00</span>
                         </div>
-                        
                         <div class="eval-bar-container">
                             <div id="evalBar" class="eval-bar">
                                 <div id="evalFill" class="eval-fill"></div>
                             </div>
                         </div>
                     </div>
-                    
                     <div class="best-move-section">
                         <div class="best-move-display">
                             <span class="bm-label">Best Move:</span>
                             <span id="bestMove" class="best-move">-</span>
                         </div>
                     </div>
-                    
                     <div class="pv-section">
                         <div class="pv-label">Principal Variation:</div>
                         <div id="pvMoves" class="pv-moves">-</div>
                     </div>
-                    
                     <div class="analysis-info">
                         <span id="analysisDepth" class="info-text">Depth: -</span>
                         <span id="analysisNodes" class="info-text">Nodes: -</span>
                     </div>
                 </div>
             `;
-            
+
             addReviewStyles();
         }
-        
+
         // Add CSS styles for the review interface
         function addReviewStyles() {
             if (document.getElementById('reviewStyles')) return;
@@ -2309,30 +2400,26 @@
         
         // Analyze the current position
         function analyzeCurrentPosition() {
+            const fen = generateFENFromHistory(currentReviewMove);
+            console.log("Analyzing position:", fen); // Debug log
             if (!stockfish || !stockfishReady) {
                 document.getElementById('analysisStatus').textContent = 'Engine not ready';
                 return;
             }
-            
+
             const statusEl = document.getElementById('analysisStatus');
             statusEl.textContent = 'Analyzing...';
             statusEl.classList.add('analyzing');
-            
+
             isAnalyzing = true;
-            
+
             try {
-                const fen = generateFEN();
-                console.log('Analyzing position:', fen);
-                
                 // Clear previous analysis
                 stockfish.postMessage('stop');
-                
                 // Set new position
                 stockfish.postMessage(`position fen ${fen}`);
-                
                 // Start analysis
                 stockfish.postMessage(`go depth ${reviewAnalysisDepth}`);
-                
             } catch (error) {
                 console.error('Error starting analysis:', error);
                 statusEl.textContent = 'Analysis error';
@@ -2419,6 +2506,9 @@
             const pvMoves = document.getElementById('pvMoves');
             const analysisDepth = document.getElementById('analysisDepth');
             const analysisNodes = document.getElementById('analysisNodes');
+            const clampedScore = Math.max(-5, Math.min(5, score));
+            const percentage = ((clampedScore + 5) / 10) * 100;
+            evalFill.style.width = `${percentage}%`;
             
             // Update evaluation
             if (typeof score === 'number') {
@@ -2467,7 +2557,13 @@
                 loadReviewPosition();
             }
         }
-        
+
+    function reviewNextMove() {
+        if (currentReviewMove < gameStateHistory.length - 1) {
+            currentReviewMove++;
+            loadReviewPosition();
+        }
+    }
         
         
         // Load a specific review position
@@ -2518,7 +2614,7 @@
             }
         }
         
-        // Exit game review mode
+        // Exit game review
         function exitGameReview() {
             isGameReviewMode = false;
             
@@ -2555,32 +2651,52 @@
         function enableGameReview() {
             const reviewBtn = document.getElementById('reviewGameBtn');
             if (reviewBtn) {
-                reviewBtn.style.display = 'block';
-                reviewBtn.disabled = false;
+                // Only enable if Stockfish is ready
+                if (stockfishReady) {
+                    reviewBtn.style.display = 'block';
+                    reviewBtn.disabled = false;
+                } else {
+                    reviewBtn.style.display = 'block';
+                    reviewBtn.disabled = true;
+                    // Poll until ready
+                    const interval = setInterval(() => {
+                        if (stockfishReady) {
+                            reviewBtn.disabled = false;
+                            clearInterval(interval);
+                        }
+                    }, 500);
+                }
+            }
+        }
+        
+        function updateStockfishStatus(msg, ready = false) {
+            const el = document.getElementById('stockfishStatus');
+            if (el) {
+                el.textContent = `Engine: ${msg}`;
+                el.style.color = ready ? '#27ae60' : '#f39c12';
             }
         }
 
 
 
 
-        
 
 
-        
 
 
-        
-        
-        
-
-        
 
 
-        
-        
 
-        
-        
 
-        
-    
+
+
+
+
+
+
+
+
+
+
+
+
