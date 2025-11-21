@@ -28,6 +28,7 @@
         <button class="btn btn-new" onclick="newGame()">New Game</button>
         <button class="btn btn-undo" onclick="undoMove()">Undo</button>
         <button class="btn btn-redo" onclick="redoMove()">Redo</button>
+        <button id="eightQueensBtn" class="btn" onclick="showEightQueensPuzzle()">8 Queens Puzzle</button>
       </div>
     </div>
 
@@ -77,6 +78,36 @@
         <button id="kingsideCastle" class="btn" style="background:#9b59b6;" onclick="selectCastle('kingside')">Kingside (O-O)</button>
         <button id="queensideCastle" class="btn" style="background:#9b59b6;" onclick="selectCastle('queenside')">Queenside (O-O-O)</button>
         <button class="btn btn-clear" onclick="closeCastlingModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 Queens Puzzle modal -->
+  <div id="eightQueensModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">8 Queens Puzzle</div>
+        <div style="display:flex;gap:8px;">
+          <button id="eqBackBtn" class="btn" style="background:#3498db;color:white;" onclick="closeEightQueensModal()">Back to Game</button>
+          <button id="eqCloseBtn" class="btn" style="background:#e74c3c;color:white;" onclick="closeEightQueensModal()">Close</button>
+        </div>
+      </div>
+      <p style="width:100%;text-align:center;">Place 8 queens so none attack each other. Click a square to toggle a queen.</p>
+      <div id="eightQueensControls" style="display:flex;gap:8px;justify-content:center;margin:8px 0;flex-wrap:wrap;">
+        <button id="eqSolveBtn" class="btn" style="background:#9b59b6;color:white;">Show Solution</button>
+        <button id="eqPrevBtn" class="btn" style="background:#8e44ad;color:white;">Prev</button>
+        <button id="eqNextBtn" class="btn" style="background:#8e44ad;color:white;">Next</button>
+        <button id="eqClearBtn" class="btn btn-clear">Clear</button>
+      </div>
+      <div style="display:flex;justify-content:center;gap:20px;align-items:flex-start;width:100%;flex-wrap:wrap;">
+        <div id="eightQueensBoard" class="eq-grid" style="border:2px solid #2c3e50;">
+          <!-- squares injected by JS -->
+        </div>
+        <div style="min-width:120px;color:#ecf0f1;display:flex;flex-direction:column;gap:8px;">
+          <div>Solutions: <span id="eightQueensSolutionsCount">0</span></div>
+          <div>Current: <span id="eightQueensCurrent">-</span></div>
+          <div style="font-size:0.9rem;opacity:0.9;">Click squares to try interactively, or use <strong>Show Solution</strong>.</div>
+        </div>
       </div>
     </div>
   </div>

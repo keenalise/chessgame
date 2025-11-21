@@ -1531,6 +1531,233 @@
         function showMessage(title, message) {
             alert(`${title}: ${message}`);
         }
+        
+        // 8 Queens Puzzle implementation
+        let eightQueensInitialized = false;
+        let eightBoard = null; // 8x8 array of 0/1
+        let eightSolutions = [];
+        let eightCurrentSolutionIndex = 0;
+        let eightShowingSolution = false;
+
+        function showEightQueensPuzzle() {
+            const modal = document.getElementById('eightQueensModal');
+            if (!eightQueensInitialized) initEightQueensPuzzle();
+            modal.style.display = 'block';
+        }
+
+        function initEightQueensPuzzle() {
+            eightQueensInitialized = true;
+            eightBoard = Array(8).fill(null).map(() => Array(8).fill(0));
+            eightSolutions = solveAllEightQueens();
+            eightCurrentSolutionIndex = 0;
+
+            const boardEl = document.getElementById('eightQueensBoard');
+            boardEl.innerHTML = '';
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const sq = document.createElement('div');
+                    sq.className = `eq-square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
+                    sq.dataset.row = r;
+                    sq.dataset.col = c;
+                    sq.addEventListener('click', (e) => {
+                        toggleQueen(r, c);
+                    });
+                    boardEl.appendChild(sq);
+                }
+            }
+
+            document.getElementById('eightQueensSolutionsCount').textContent = eightSolutions.length;
+            document.getElementById('eightQueensCurrent').textContent = eightSolutions.length > 0 ? '0' : '-';
+
+            // wire buttons
+            document.getElementById('eqSolveBtn').onclick = () => {
+                if (eightSolutions.length === 0) {
+                    alert('No solutions found');
+                    return;
+                }
+                eightCurrentSolutionIndex = 0;
+                showEightSolution(eightCurrentSolutionIndex);
+            };
+            document.getElementById('eqPrevBtn').onclick = () => {
+                if (eightSolutions.length === 0) return;
+                eightCurrentSolutionIndex = (eightCurrentSolutionIndex - 1 + eightSolutions.length) % eightSolutions.length;
+                showEightSolution(eightCurrentSolutionIndex);
+            };
+            document.getElementById('eqNextBtn').onclick = () => {
+                if (eightSolutions.length === 0) return;
+                eightCurrentSolutionIndex = (eightCurrentSolutionIndex + 1) % eightSolutions.length;
+                showEightSolution(eightCurrentSolutionIndex);
+            };
+            document.getElementById('eqClearBtn').onclick = () => {
+                eightShowingSolution = false;
+                clearEightBoard();
+            };
+            document.getElementById('eqCloseBtn').onclick = () => {
+                closeEightQueensModal();
+            };
+
+            renderEightBoard();
+        }
+
+        function toggleQueen(r, c) {
+            // If currently showing a solution, switch to manual mode
+            eightShowingSolution = false;
+
+            const currentlyPlaced = countQueens();
+            const isPlacing = eightBoard[r][c] === 0; // true if we will place
+
+            // Prevent placing more than 8 queens
+            if (isPlacing && currentlyPlaced >= 8) {
+                alert('You cannot place more than 8 queens.');
+                return;
+            }
+
+            // toggle
+            eightBoard[r][c] = eightBoard[r][c] ? 0 : 1;
+            renderEightBoard();
+        }
+
+        function countQueens() {
+            let n = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (eightBoard[r][c]) n++;
+                }
+            }
+            return n;
+        }
+
+        function clearEightBoard() {
+            eightBoard = Array(8).fill(null).map(() => Array(8).fill(0));
+            renderEightBoard();
+        }
+
+        function closeEightQueensModal() {
+            document.getElementById('eightQueensModal').style.display = 'none';
+        }
+
+        function renderEightBoard() {
+            const boardEl = document.getElementById('eightQueensBoard');
+            const squares = boardEl.querySelectorAll('.eq-square');
+            for (const sq of squares) {
+                const r = parseInt(sq.dataset.row, 10);
+                const c = parseInt(sq.dataset.col, 10);
+                sq.classList.remove('conflict', 'same-row', 'same-col', 'same-diag');
+                sq.innerHTML = '';
+                if (eightBoard[r][c]) {
+                    const q = document.createElement('div');
+                    q.className = 'queen';
+                    q.textContent = '♛';
+                    sq.appendChild(q);
+                }
+            }
+
+            // mark conflicts/attacks
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (eightBoard[r][c]) {
+                        markAttacks(r, c);
+                    }
+                }
+            }
+
+            // Update placed / solution display
+            const placed = countQueens();
+            const currentEl = document.getElementById('eightQueensCurrent');
+            if (currentEl) {
+                if (eightShowingSolution) {
+                    // leave as-is (showEightSolution sets text)
+                } else {
+                    currentEl.textContent = `${placed}/8`;
+                }
+            }
+        }
+
+        function markAttacks(r, c) {
+            const boardEl = document.getElementById('eightQueensBoard');
+            // same row
+            for (let col = 0; col < 8; col++) {
+                if (col === c) continue;
+                if (eightBoard[r][col]) {
+                    getEqSquare(r, col).classList.add('conflict');
+                    getEqSquare(r, col).classList.add('same-row');
+                    getEqSquare(r, c).classList.add('conflict');
+                }
+            }
+            // same col
+            for (let row = 0; row < 8; row++) {
+                if (row === r) continue;
+                if (eightBoard[row][c]) {
+                    getEqSquare(row, c).classList.add('conflict');
+                    getEqSquare(row, c).classList.add('same-col');
+                    getEqSquare(r, c).classList.add('conflict');
+                }
+            }
+            // diagonals
+            for (let dr = -8; dr <= 8; dr++) {
+                if (dr === 0) continue;
+                const rr = r + dr;
+                const cc = c + dr;
+                if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+                    if (eightBoard[rr][cc]) {
+                        getEqSquare(rr, cc).classList.add('conflict');
+                        getEqSquare(rr, cc).classList.add('same-diag');
+                        getEqSquare(r, c).classList.add('conflict');
+                    }
+                }
+                const cc2 = c - dr;
+                if (rr >= 0 && rr < 8 && cc2 >= 0 && cc2 < 8) {
+                    if (eightBoard[rr][cc2]) {
+                        getEqSquare(rr, cc2).classList.add('conflict');
+                        getEqSquare(rr, cc2).classList.add('same-diag');
+                        getEqSquare(r, c).classList.add('conflict');
+                    }
+                }
+            }
+        }
+
+        function getEqSquare(r, c) {
+            const boardEl = document.getElementById('eightQueensBoard');
+            return boardEl.children[r * 8 + c];
+        }
+
+        function showEightSolution(index) {
+            const sol = eightSolutions[index]; // sol is array of cols per row
+            if (!sol) return;
+            eightBoard = Array(8).fill(null).map(() => Array(8).fill(0));
+            for (let row = 0; row < 8; row++) {
+                eightBoard[row][sol[row]] = 1;
+            }
+            document.getElementById('eightQueensCurrent').textContent = `${index + 1}/${eightSolutions.length}`;
+            renderEightBoard();
+        }
+
+        // Backtracking solver to produce all solutions. Returns array of solutions where each solution is an array of length 8: column index per row.
+        function solveAllEightQueens() {
+            const solutions = [];
+            const cols = Array(8).fill(false);
+            const diag1 = Array(15).fill(false); // r+c
+            const diag2 = Array(15).fill(false); // r-c+7
+            const current = Array(8).fill(-1);
+
+            function place(row) {
+                if (row === 8) {
+                    solutions.push(current.slice());
+                    return;
+                }
+                for (let c = 0; c < 8; c++) {
+                    if (cols[c] || diag1[row + c] || diag2[row - c + 7]) continue;
+                    cols[c] = diag1[row + c] = diag2[row - c + 7] = true;
+                    current[row] = c;
+                    place(row + 1);
+                    cols[c] = diag1[row + c] = diag2[row - c + 7] = false;
+                    current[row] = -1;
+                }
+            }
+            place(0);
+            return solutions;
+        }
         // flip boardss
         function toggleFlipMode() {
             isAutoFlip = !isAutoFlip;

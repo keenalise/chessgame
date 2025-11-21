@@ -711,3 +711,131 @@ body {
 .evaluation-equal {
     background: #95a5a6;
 }
+
+/* Styles for 8 Queens Puzzle modal board */
+#eightQueensBoard {
+    background: transparent;
+    box-sizing: border-box;
+}
+
+#eightQueensBoard .eq-square {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+#eightQueensBoard .eq-square.light { background: #f0d9b5; }
+#eightQueensBoard .eq-square.dark { background: #b58863; }
+
+#eightQueensBoard .eq-square.conflict { outline: 3px solid rgba(231,76,60,0.6); }
+#eightQueensBoard .eq-square.same-row, #eightQueensBoard .eq-square.same-col, #eightQueensBoard .eq-square.same-diag { opacity: 0.9; }
+
+#eightQueensBoard .queen {
+    font-size: 1.6rem;
+}
+
+/* Fullscreen modal adjustments for the 8-Queens puzzle */
+#eightQueensModal .modal-content {
+    width: 95%;
+    height: 92vh;
+    margin: 2.5vh auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    justify-content: flex-start;
+    max-width: 1200px;
+}
+
+/* Make the eight-queens board use an 8x8 grid scaled to available space */
+/* The board element itself has class `eq-grid` (selector covers both cases) */
+#eightQueensBoard.eq-grid, .eq-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 6px;
+    width: min(80vmin, 720px);
+    height: min(80vmin, 720px);
+}
+
+#eightQueensBoard .eq-square {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+}
+
+/* Modal header and controls layout */
+#eightQueensModal .modal-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+#eightQueensModal .modal-title {
+    color: #ecf0f1;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+#eightQueensModal .modal-footer {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+/* Responsive tweaks for smaller screens */
+@media (max-width: 720px) {
+    #eightQueensModal .modal-content {
+        padding: 12px;
+        height: 88vh;
+    }
+
+    #eightQueensBoard.eq-grid, .eq-grid {
+        width: min(92vmin, 360px);
+        height: min(92vmin, 360px);
+    }
+}
+
+/* Make the queen more visible: larger, high-contrast badge with shadow */
+#eightQueensBoard .eq-square .queen {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.8rem;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Light square: use dark queen symbol on light background */
+#eightQueensBoard .eq-square.light .queen {
+    background: rgba(0,0,0,0.75);
+    color: #ffffff;
+}
+
+/* Dark square: use light queen symbol on bright badge */
+#eightQueensBoard .eq-square.dark .queen {
+    background: rgba(255,255,255,0.95);
+    color: #2c3e50;
+}
+
+#eightQueensBoard .eq-square .queen:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.55);
+}
+
+.eq-small-info { color: #ecf0f1; font-size: 0.95rem; }
