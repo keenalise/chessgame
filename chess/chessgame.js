@@ -9,6 +9,8 @@
         // Board flip functionality
         let isAutoFlip = true;
         let isBoardFlipped = false;
+        // When true the board is shown in a read-only (non-interactive) state
+        let isReadOnlyMode = false;
         let pendingPromotion = null;
         let pendingPromotionMove = null;
         let halfmoveClock = 0; // Counts half-moves since last pawn move or capture
@@ -112,9 +114,132 @@
 
         // Initialize game + Stockfish on page load
         window.addEventListener("load", () => {
-            initGame();
+                    initGame();
+                    // Render blank preview board squares (no pieces) and wire sidebar buttons
+                    buildBlankPreview();
+                    wireSidebarButtons();
             
         });
+
+        function buildBlankPreview() {
+            const preview = document.getElementById('blankBoardPreview');
+            if (!preview) return;
+            preview.innerHTML = '';
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const sq = document.createElement('div');
+                    sq.className = 'preview-square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+                    preview.appendChild(sq);
+                }
+            }
+        }
+
+        function wireSidebarButtons() {
+            const playBtn = document.getElementById('playBtn');
+            const puzzlesBtn = document.getElementById('puzzlesBtn');
+            const puzzlesList = document.getElementById('puzzlesList');
+            const puzzles8Btn = document.getElementById('puzzles8Btn');
+
+            if (playBtn) playBtn.addEventListener('click', () => {
+                openGameBoard();
+            });
+
+            if (puzzlesBtn && puzzlesList) puzzlesBtn.addEventListener('click', () => {
+                puzzlesList.classList.toggle('hidden');
+            });
+
+            if (puzzles8Btn) puzzles8Btn.addEventListener('click', () => {
+                // open the 8-queens modal
+                showEightQueensPuzzle();
+            });
+        }
+
+        function openGameBoard() {
+            // Hide preview and show main board container, then start new game
+            const preview = document.getElementById('blankBoardPreview');
+            const mainContainer = document.getElementById('mainBoardContainer');
+            if (preview) preview.style.display = 'none';
+            if (mainContainer) mainContainer.style.display = 'block';
+            // Reset to a blank board or start a fresh game depending on UX choice
+            // We'll start a fresh game position
+            try { newGame(); } catch (e) { console.warn('newGame failed', e); }
+        }
+
+        // Show only the chess board in a read-only (non-interactive) view.
+        // Call this when the user successfully logs in to present a view-only board.
+        function showBoardReadOnly() {
+            isReadOnlyMode = true;
+            openGameBoard();
+
+            const preview = document.getElementById('blankBoardPreview');
+            const side = document.querySelector('.side-panel');
+            const info = document.querySelector('.info-panel');
+            const moves = document.querySelector('.move-history');
+            const status = document.getElementById('statusBar');
+            const stockfish = document.getElementById('stockfishStatus');
+            const flip = document.querySelector('.flip-board-container');
+
+            if (preview) preview.style.display = 'none';
+            if (side) side.style.display = 'none';
+            if (info) info.style.display = 'none';
+            if (moves) moves.style.display = 'none';
+            if (status) status.style.display = 'none';
+            if (stockfish) stockfish.style.display = 'none';
+            if (flip) flip.style.display = 'none';
+
+            const chessboard = document.getElementById('chessboard');
+            if (chessboard) {
+                chessboard.classList.add('readonly');
+                chessboard.style.pointerEvents = 'none';
+            }
+
+            const container = document.querySelector('.container');
+            if (container) container.classList.add('readonly-mode');
+
+            // Show exit button in topbar (if present)
+            const exitBtn = document.getElementById('exitReadOnlyBtn');
+            if (exitBtn) exitBtn.style.display = 'inline-block';
+        }
+
+        // Expose helper for login flow to call
+        window.showBoardReadOnly = showBoardReadOnly;
+        window.onUserLoggedIn = showBoardReadOnly;
+
+        // Exit the read-only view and restore interactive UI
+        function exitReadOnly() {
+            isReadOnlyMode = false;
+            const preview = document.getElementById('blankBoardPreview');
+            const side = document.querySelector('.side-panel');
+            const info = document.querySelector('.info-panel');
+            const moves = document.querySelector('.move-history');
+            const status = document.getElementById('statusBar');
+            const stockfish = document.getElementById('stockfishStatus');
+            const flip = document.querySelector('.flip-board-container');
+
+            if (preview) preview.style.display = 'none';
+            if (side) side.style.display = '';
+            if (info) info.style.display = '';
+            if (moves) moves.style.display = '';
+            if (status) status.style.display = '';
+            if (stockfish) stockfish.style.display = '';
+            if (flip) flip.style.display = '';
+
+            const chessboard = document.getElementById('chessboard');
+            if (chessboard) {
+                chessboard.classList.remove('readonly');
+                chessboard.style.pointerEvents = 'auto';
+            }
+
+            const container = document.querySelector('.container');
+            if (container) container.classList.remove('readonly-mode');
+
+            const exitBtn = document.getElementById('exitReadOnlyBtn');
+            if (exitBtn) exitBtn.style.display = 'none';
+
+            updateStatus('Interactive view restored');
+        }
+
+        window.exitReadOnly = exitReadOnly;
 
 
 
@@ -226,6 +351,11 @@
         }
 
         function handleClick(event) {
+            if (isReadOnlyMode) {
+                updateStatus('Read-only view — interactions disabled');
+                return;
+            }
+
             const square = event.currentTarget;
             const row = parseInt(square.dataset.row);
             const col = parseInt(square.dataset.col);
@@ -238,6 +368,8 @@
         }
 
         function handleDoubleClick(event) {
+            if (isReadOnlyMode) return;
+
             const square = event.currentTarget;
             const row = parseInt(square.dataset.row);
             const col = parseInt(square.dataset.col);
@@ -456,7 +588,9 @@
             if (isCheckmateNow) {
                 const winner = currentTurn === 'white' ? 'Black' : 'White';
                 console.log(`Checkmate detected! ${winner} wins`);
-                showVictoryModal(winner);
+                // Pass the last move (the move that delivered mate) to the modal
+                const lastMove = moveHistory.length > 0 ? moveHistory[moveHistory.length - 1] : null;
+                showVictoryModal(winner, lastMove);
                 return; // Exit early - game is over
             }
             
@@ -1371,7 +1505,8 @@
             if (isInCheck(currentTurn)) {
                 if (isCheckmate(currentTurn)) {
                     const winner = currentTurn === 'white' ? 'Black' : 'White';
-                    showVictoryModal(winner);
+                    const lastMove = moveHistory.length > 0 ? moveHistory[moveHistory.length - 1] : null;
+                    showVictoryModal(winner, lastMove);
                 } else {
                     highlightKingInCheck();
                 }
@@ -1848,21 +1983,47 @@
                 }
             });
         }
-        function showVictoryModal(winner) {
+        function showVictoryModal(winner, mateMove = null) {
             const modal = document.getElementById('victoryModal');
             const message = document.getElementById('victoryMessage');
             const moveCountEl = document.getElementById('moveCount');
-            
-            // Set victory message
-            message.textContent = `${winner} wins by checkmate!`;
-            
+
+            // Build mate move notation (if available)
+            let mateNotation = '';
+            if (mateMove) {
+                try {
+                    if (mateMove.type === 'castle') {
+                        mateNotation = mateMove.side === 'kingside' ? 'O-O#' : 'O-O-O#';
+                    } else {
+                        const isCapture = mateMove.captured !== null && mateMove.captured !== undefined;
+                        const from = mateMove.from || {};
+                        const to = mateMove.to || {};
+                        let notation = formatMoveNotation(mateMove.piece || '', from.row, from.col, to.row, to.col, isCapture);
+                        if (mateMove.isEnPassant) notation += ' e.p.';
+                        // If promotion info exists, show promoted piece (common property name: promotedTo)
+                        if (mateMove.promotedTo) notation += '=' + mateMove.promotedTo.replace(/.*_/,'').toUpperCase();
+                        mateNotation = notation + '#';
+                    }
+                } catch (e) {
+                    console.warn('Failed to format mate move notation', e);
+                    mateNotation = '';
+                }
+            }
+
+            // Set victory message including the mate move when available
+            if (mateNotation) {
+                message.textContent = `${winner} wins by checkmate — ${mateNotation}`;
+            } else {
+                message.textContent = `${winner} wins by checkmate!`;
+            }
+
             // Set move count
             moveCountEl.textContent = Math.ceil(moveHistory.length / 2);
-            
+
             // Show modal
             modal.style.display = 'block';
-             // Enable game review button
-             enableGameReview();
+            // Enable game review button
+            if (typeof enableGameReview === 'function') enableGameReview();
         }
         //draw modal
         function showDrawModal(drawType = 'stalemate') {
@@ -2204,6 +2365,110 @@
                 return null;
             }
         }
+
+        // ---------------- Stockfish helper API (non-module) ------------------------------------
+        function startStockfish() {
+            if (window._stockfishWorker) return window._stockfishWorker;
+            try {
+                if (typeof Stockfish === 'function') {
+                    window._stockfishWorker = Stockfish();
+                } else if (typeof stockfish === 'function') {
+                    window._stockfishWorker = stockfish();
+                } else if (typeof Worker !== 'undefined') {
+                    try {
+                        // Try local fallback worker inside stockfish folder
+                        window._stockfishWorker = new Worker('./stockfish/stockfish.js');
+                    } catch (e) {
+                        console.warn('No Stockfish worker available locally:', e);
+                        window._stockfishWorker = null;
+                    }
+                } else {
+                    window._stockfishWorker = null;
+                }
+            } catch (e) {
+                console.warn('startStockfish error', e);
+                window._stockfishWorker = null;
+            }
+            return window._stockfishWorker;
+        }
+
+        function waitForMessage(worker, substring, timeout = 3000) {
+            return new Promise((resolve) => {
+                if (!worker) return resolve(false);
+                let timer = null;
+                const onmsg = (e) => {
+                    const d = (e && e.data) ? e.data.toString() : '' + e;
+                    if (d.indexOf(substring) !== -1) {
+                        if (timer) clearTimeout(timer);
+                        worker.removeEventListener('message', onmsg);
+                        resolve(true);
+                    }
+                };
+                worker.addEventListener('message', onmsg);
+                timer = setTimeout(() => {
+                    try { worker.removeEventListener('message', onmsg); } catch (e) {}
+                    resolve(false);
+                }, timeout);
+            });
+        }
+
+        function parseUCIInfo(lines) {
+            const result = { id: {}, options: {} };
+            lines.forEach(line => {
+                if (!line) return;
+                const parts = line.trim().split(/\s+/);
+                if (parts[0] === 'id') {
+                    const key = parts[1];
+                    const value = parts.slice(2).join(' ');
+                    result.id[key] = value;
+                } else if (parts[0] === 'option') {
+                    const rest = line.replace(/^option\s+/, '');
+                    const match = rest.match(/name\s+(.*?)\s+(type\s+.*)/);
+                    if (match) {
+                        const name = match[1];
+                        const props = match[2];
+                        result.options[name] = props;
+                    }
+                }
+            });
+            return result;
+        }
+
+        /**
+         * Query the Stockfish engine for UCI id/options.
+         * Returns: { uciOk, ready, parsed, raw }
+         */
+        async function getStockfishFeatures(timeout = 3000) {
+            const worker = startStockfish();
+            if (!worker) return { error: 'no-worker' };
+
+            const lines = [];
+            const collector = (e) => {
+                const d = (e && e.data) ? e.data.toString() : '' + e;
+                lines.push(d);
+            };
+            worker.addEventListener('message', collector);
+
+            // Send UCI handshake and wait for uciok
+            try {
+                worker.postMessage('uci');
+            } catch (e) { console.warn('postMessage uci failed', e); }
+            const uciOk = await waitForMessage(worker, 'uciok', timeout);
+
+            // Ensure engine ready
+            try { worker.postMessage('isready'); } catch (e) {}
+            const ready = await waitForMessage(worker, 'readyok', timeout);
+
+            worker.removeEventListener('message', collector);
+            const parsed = parseUCIInfo(lines);
+            return { uciOk, ready, parsed, raw: lines };
+        }
+
+        // Expose globally for the page
+        window.getStockfishFeatures = getStockfishFeatures;
+        window.startStockfish = startStockfish;
+
+        // ---------------------------------------------------------------------------------------
 
 
 

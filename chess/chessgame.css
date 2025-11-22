@@ -4,6 +4,23 @@
     box-sizing: border-box;
 }
 
+/* Topbar similar to modern chess sites */
+.topbar {
+    width: 100%;
+    background: linear-gradient(90deg, rgba(44,62,80,0.95), rgba(36,54,70,0.95));
+    color: #ecf0f1;
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 8px;
+    margin-bottom: 14px;
+}
+.topbar .logo { font-weight: 700; font-size: 1.1rem; }
+.topbar .top-actions { display:flex; gap:8px; align-items:center; }
+.topbar .profile { margin-left:12px; opacity:0.9; }
+.btn.small { padding:6px 10px; font-size:0.9rem; border-radius:6px; }
+
 body {
     font-family: 'Georgia', serif;
     background: linear-gradient(135deg, #2c3e50, #34495e);
@@ -39,6 +56,28 @@ body {
     align-items: center;
     margin-bottom: 20px;
     flex-wrap: wrap;
+
+    /* Chess.com-like two-column layout */
+    .chess-layout { display: flex; gap: 20px; align-items: flex-start; }
+    .left-column { display:flex; flex-direction:column; gap:12px; }
+    .right-column { width: 320px; }
+
+    .players-row { display:flex; justify-content:space-between; gap:12px; }
+    .player { display:flex; align-items:center; gap:10px; background: rgba(255,255,255,0.03); padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.03); }
+    .player .avatar { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; background: rgba(0,0,0,0.2); }
+    .player-info { display:flex; flex-direction:column; }
+    .player-name { font-weight:700; }
+    .player-rating { font-size:0.85rem; opacity:0.85; }
+
+    .board-container { background: linear-gradient(180deg, #2b3a4a, #243240); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); }
+
+    /* Right-column tweaks for move history to look like a panel */
+    .right-column { background: linear-gradient(180deg, rgba(44,62,80,0.9), rgba(36,54,70,0.9)); padding: 12px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.03); }
+    .right-column h3 { margin-top:0; }
+
+    /* Make board slightly smaller to fit with right column on most screens */
+    .chessboard { width: 560px; height: 560px; }
+    .square { width: 70px; height:70px; font-size:2.1rem; }
     gap: 10px;
 }
 
@@ -98,6 +137,42 @@ body {
     gap: 30px;
     align-items: flex-start;
     flex-wrap: wrap;
+}
+
+/* Layout that includes a vertical sidebar */
+.layout-with-sidebar { display: flex; gap: 20px; align-items: flex-start; }
+.side-panel {
+    width: 220px;
+    background: rgba(44,62,80,0.9);
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    color: #ecf0f1;
+}
+.side-panel .side-header { font-weight:700; font-size:1.1rem; margin-bottom:10px; }
+.puzzles-list { margin-top:6px; }
+.hidden { display: none !important; }
+
+.board-area { display:flex; gap:20px; align-items:flex-start; flex-direction:column; }
+
+/* Blank board preview (8x8 empty grid) */
+.blank-board {
+    width: 640px;
+    height: 640px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 0;
+    border: 3px dashed rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.02);
+}
+.blank-board .preview-square { width:100%; height:100%; }
+
+@media (max-width: 900px) {
+    .side-panel { display:none; }
+    .blank-board, .chessboard { width: 400px; height: 400px; }
 }
 
 .board-container {
@@ -246,12 +321,11 @@ body {
 }
 
 .move-history {
-    background: #34495e;
-    border-radius: 15px;
-    padding: 20px;
-    border: 3px solid #3498db;
-    min-width: 300px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    /* kept for backward compatibility but mostly replaced by .right-column */
+    background: transparent;
+    border: none;
+    padding: 0;
+    min-width: 0;
 }
 
 .move-history h3 {
@@ -839,3 +913,34 @@ body {
 }
 
 .eq-small-info { color: #ecf0f1; font-size: 0.95rem; }
+
+/* Read-only (post-login) view: hide surrounding UI and make board non-interactive */
+.container.readonly-mode {
+    max-width: none;
+    padding: 30px 20px;
+}
+.container.readonly-mode .side-panel,
+.container.readonly-mode .info-panel,
+.container.readonly-mode .move-history,
+.container.readonly-mode .controls,
+.container.readonly-mode .status-bar,
+.container.readonly-mode #stockfishStatus,
+.container.readonly-mode .flip-board-container {
+    display: none !important;
+}
+.layout-with-sidebar { gap: 0; }
+.container.readonly-mode .game-area { justify-content: center; }
+.container.readonly-mode .board-area { align-items: center; }
+
+/* Disable interactions while keeping the board visible */
+.chessboard.readonly {
+    pointer-events: none;
+    margin: 0 auto;
+}
+.chessboard.readonly .square { cursor: default; }
+
+/* Small tweak to center board on small screens in readonly mode */
+@media (max-width: 900px) {
+    .container.readonly-mode .blank-board,
+    .container.readonly-mode .chessboard { width: 92vw; height: 92vw; }
+}
