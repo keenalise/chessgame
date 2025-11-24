@@ -509,20 +509,20 @@ function redirectToMainApp(user) {
     localStorage.setItem('chess_user_name', user.displayName || user.email);
     localStorage.setItem('chess_user_photo', user.photoURL || '');
     
-    console.log('User data stored, redirecting to chessgame.html...');
+    console.log('User data stored, redirecting to static main interface...');
     
-    // Redirect to chess game
+    // Redirect to static main interface page (static preview)
     try {
-        window.location.href = 'chessgame.html';
+        window.location.href = 'chessmaininterface.html';
     } catch (error) {
         console.error('Redirect failed:', error);
         // Fallback: try different redirect methods
         try {
-            window.location.replace('chessgame.html');
+            window.location.replace('chessmaininterface.html');
         } catch (error2) {
             console.error('Replace redirect failed:', error2);
             // Last resort: show manual link
-            showMessage('loginSuccess', 'Login successful! Click here if not redirected: <a href="chessgame.html">Open Chess Game</a>');
+            showMessage('loginSuccess', 'Login successful! Click here if not redirected: <a href="chessmaininterface.html">Open Static Interface</a>');
         }
     }
 }
