@@ -93,10 +93,10 @@
 
   // expose helper (non-interactive) to change the displayed position if needed
   window.renderStaticPosition = renderFromFEN;
-  
-  // Navigation handlers for right-side nav
+
+  // Navigation handlers for left nav
   function setActive(buttonId){
-    const items = document.querySelectorAll('.right-nav .nav-item');
+    const items = document.querySelectorAll('.left-nav .nav-item');
     items.forEach(it => {
       it.classList.toggle('active', it.id === buttonId);
       it.setAttribute('aria-pressed', it.id === buttonId ? 'true' : 'false');
@@ -106,6 +106,8 @@
   function wireNav(){
     const home = document.getElementById('navHomeBtn');
     const play = document.getElementById('navPlayBtn');
+    const puzzle = document.getElementById('navPuzzleBtn');
+    const news = document.getElementById('navNewsBtn');
     const learn = document.getElementById('navLearnBtn');
     const watch = document.getElementById('navWatchBtn');
     const logout = document.getElementById('navLogoutBtn');
@@ -122,6 +124,19 @@
         setActive('navPlayBtn');
         // navigate to the interactive game page (same folder)
         window.location.href = 'chessgame.html';
+      });
+    }
+    if(puzzle){
+      puzzle.addEventListener('click', ()=>{
+        setActive('navPuzzleBtn');
+        // show a puzzle modal or static puzzle view (placeholder)
+        alert('Puzzles section not implemented yet.');
+      });
+    }
+    if(news){
+      news.addEventListener('click', ()=>{
+        setActive('navNewsBtn');
+        alert('News section not implemented yet.');
       });
     }
     if(learn){

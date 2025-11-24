@@ -7,6 +7,17 @@
   <link rel="stylesheet" href="maininterface.css">
 </head>
 <body>
+  <!-- Navigation (left-top) -->
+  <nav class="left-nav" aria-label="Navigation">
+    <button id="navHomeBtn" class="nav-item active" aria-pressed="true">Home</button>
+    <button id="navPlayBtn" class="nav-item">🫳🕸♟️Play</button>
+    <button id="navPuzzleBtn" class="nav-item">🧩Puzzle</button>
+    <button id="navNewsBtn" class="nav-item">📰News</button>
+    <button id="navLearnBtn" class="nav-item">👨‍🏫Learn</button>
+    <button id="navWatchBtn" class="nav-item">👀Watch</button>
+    <button id="navLogoutBtn" class="nav-item">😫Logout</button>
+  </nav>
+
   <main class="static-container">
     <header class="static-header">
       <h1>KeenChess </h1>
@@ -21,18 +32,11 @@
     </section>
 
     <footer class="static-footer">
-      <small> Hello my  fellow GM but I meant Good morning. </small>
+      <small> Hello my  fellow GM, I meant Good morning though. </small>
     </footer>
   </main>
   
-  <!-- Navigation placed outside of the static container -->
-  <nav class="right-nav" aria-label="Navigation">
-    <button id="navHomeBtn" class="nav-item active" aria-pressed="true">Home</button>
-    <button id="navPlayBtn" class="nav-item">Play</button>
-    <button id="navLearnBtn" class="nav-item">Learn</button>
-    <button id="navWatchBtn" class="nav-item">Watch</button>
-    <button id="navLogoutBtn" class="nav-item">Logout</button>
-  </nav>
+  <!-- nav moved to top-left for left-top placement -->
 
   <script src="maininterface.js"></script>
 </body>
