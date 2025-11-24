@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KeenChess — Static Board</title>
+  <link rel="stylesheet" href="maininterface.css">
+</head>
+<body>
+  <main class="static-container">
+    <header class="static-header">
+      <h1>KeenChess </h1>
+      <p class="subtitle"></p>
+    </header>
+
+    <section class="board-wrapper" aria-label="Static chess board">
+      <div id="staticBoard" class="board" aria-hidden="false">
+        <!-- squares filled by CSS/JS -> 8x8 grid -->
+        <!-- JS will render the initial pieces but there are no handlers for moving pieces -->
+      </div>
+    </section>
+
+    <footer class="static-footer">
+      <small> Hello my  fellow GM but I meant Good morning. </small>
+    </footer>
+  </main>
+  
+  <!-- Navigation placed outside of the static container -->
+  <nav class="right-nav" aria-label="Navigation">
+    <button id="navHomeBtn" class="nav-item active" aria-pressed="true">Home</button>
+    <button id="navPlayBtn" class="nav-item">Play</button>
+    <button id="navLearnBtn" class="nav-item">Learn</button>
+    <button id="navWatchBtn" class="nav-item">Watch</button>
+    <button id="navLogoutBtn" class="nav-item">Logout</button>
+  </nav>
+
+  <script src="maininterface.js"></script>
+</body>
+</html>
