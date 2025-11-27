@@ -36,8 +36,8 @@ body{
   align-items:center
 }
 .board{
-  width:640px;
-  height:640px;
+  width:720px;
+  height:720px;
   display:grid;
   grid-template-columns:repeat(8,1fr);
   grid-template-rows:repeat(8,1fr);
@@ -138,6 +138,64 @@ body{
   font-weight:700;
   transition:all 0.12s ease;
   display:block;
+}
+
+/* hidden helper */
+.hidden{display:none!important}
+
+/* Puzzle submenu styles */
+.puzzle-menu{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-left:6px;
+  padding-left:6px;
+}
+.puzzle-menu .puzzle-item{
+  background:transparent;
+  color:var(--text);
+  border:none;
+  padding:8px 12px;
+  border-radius:6px;
+  text-align:right;
+  cursor:pointer;
+  font-weight:700;
+}
+.puzzle-menu .puzzle-item:hover{
+  background:rgba(255,255,255,0.03);
+  transform:translateX(6px);
+}
+
+/* Modal styles (lightweight copy for static page) */
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:2000}
+.modal.hidden{display:none}
+.modal-content{background:linear-gradient(180deg, #243240, #2b3a4a);padding:18px;border-radius:12px;max-width:720px;width:92%;box-shadow:0 12px 60px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.04)}
+.modal-center{display:flex;flex-direction:column;align-items:center}
+.modal-header{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px}
+.modal-header h2{margin:0;color:var(--text)}
+.modal-close{background:transparent;border:none;color:var(--text);font-size:1.1rem;cursor:pointer}
+
+/* 8-Queens grid */
+.eq-grid{width:680px;max-width:100%;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);gap:6px;border-radius:8px;overflow:hidden;border:4px solid rgba(0,0,0,0.25);margin-top:12px}
+.eq-grid .eq-square{display:flex;align-items:center;justify-content:center;font-size:1.8rem;position:relative;user-select:none;padding:0}
+.eq-grid .eq-square.light{background:var(--light)}
+.eq-grid .eq-square.dark{background:var(--dark)}
+.eq-grid .eq-square .queen{font-size:26px;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border-radius:50%;box-shadow:0 6px 18px rgba(0,0,0,0.45)}
+.eq-grid .eq-square.dark .queen{background:rgba(255,255,255,0.95);color:#0b1720}
+.eq-grid .eq-square.light .queen{background:rgba(10,20,30,0.95);color:#f8f8f8}
+
+/* Visual indicators for queen validity */
+.eq-grid .eq-square .queen.ok{
+  box-shadow:0 6px 18px rgba(0,0,0,0.45), 0 0 0 4px rgba(52,152,219,0.18); /* blue ring */
+}
+.eq-grid .eq-square .queen.conflict{
+  box-shadow:0 6px 18px rgba(0,0,0,0.45), 0 0 0 6px rgba(231,76,60,0.25); /* red ring */
+  transform:scale(1.02);
+}
+
+@media (max-width:720px){
+  .eq-grid{width:92vw}
+  .modal-content{padding:12px}
 }
 
 .left-nav .nav-item:hover{

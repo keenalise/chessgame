@@ -12,6 +12,11 @@
     <button id="navHomeBtn" class="nav-item active" aria-pressed="true">Home</button>
     <button id="navPlayBtn" class="nav-item">🫳🕸♟️Play</button>
     <button id="navPuzzleBtn" class="nav-item">🧩Puzzle</button>
+    <!-- Puzzle submenu (hidden until Puzzle is clicked) -->
+    <div id="puzzleMenu" class="puzzle-menu hidden" aria-hidden="true">
+      <button id="navPuzzle8Btn" class="puzzle-item">8 Queens Puzzle</button>
+      <button id="navPuzzleKnightBtn" class="puzzle-item">Knight Tour</button>
+    </div>
     <button id="navNewsBtn" class="nav-item">📰News</button>
     <button id="navLearnBtn" class="nav-item">👨‍🏫Learn</button>
     <button id="navWatchBtn" class="nav-item">👀Watch</button>
@@ -39,5 +44,31 @@
   <!-- nav moved to top-left for left-top placement -->
 
   <script src="maininterface.js"></script>
+  <!-- 8-Queens Modal (static page) -->
+  <div id="eightModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content modal-center">
+      <div class="modal-header">
+        <h2>8 Queens Puzzle</h2>
+        <button id="eightCloseBtn" class="modal-close">✕</button>
+      </div>
+      <p style="text-align:center;margin-top:6px;color:var(--text);">Place 8 queens so none attack each other. Click squares to toggle a queen.</p>
+      <div id="eightControls" style="display:flex;gap:8px;justify-content:space-between;margin:12px 0;align-items:center;width:100%;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button id="eightPrevBtn" class="btn">◀</button>
+            <button id="eightNextBtn" class="btn">▶</button>
+          </div>
+          <div style="font-size:14px;color:#222;">Solution: <span id="eightSolutionIdx">-</span> / <span id="eightSolutionsTotal">-</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="eightSolveBtn" class="btn">Solve</button>
+          <button id="eightClearBtn" class="btn">Clear</button>
+          <button id="eightCloseFooterBtn" class="btn">Close</button>
+        </div>
+      </div>
+      <div id="eightStaticBoard" class="eq-grid" aria-hidden="false"></div>
+      <div style="text-align:center;margin-top:8px;color:var(--text);">Queens placed: <span id="eightCount">0</span>/8</div>
+    </div>
+  </div>
 </body>
 </html>

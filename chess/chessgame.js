@@ -118,6 +118,27 @@
                     // Render blank preview board squares (no pieces) and wire sidebar buttons
                     buildBlankPreview();
                     wireSidebarButtons();
+                    // If redirected from static interface with a requested puzzle, open it
+                    try {
+                        const requested = localStorage.getItem('open_puzzle');
+                        if (requested) {
+                            // consume the flag
+                            localStorage.removeItem('open_puzzle');
+                            if (requested === 'eight') {
+                                // small delay to ensure UI initialized
+                                setTimeout(() => {
+                                    try { showEightQueensPuzzle(); } catch (e) { console.warn('showEightQueensPuzzle not available', e); }
+                                }, 80);
+                            } else if (requested === 'knight') {
+                                setTimeout(() => {
+                                    try {
+                                        if (typeof showKnightTour === 'function') showKnightTour();
+                                        else alert('Knight Tour not implemented yet.');
+                                    } catch (e) { console.warn('showKnightTour error', e); }
+                                }, 80);
+                            }
+                        }
+                    } catch (e) { console.warn('open_puzzle check failed', e); }
             
         });
 
