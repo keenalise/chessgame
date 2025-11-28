@@ -163,9 +163,13 @@
       if (puzzleKnight) {
           puzzleKnight.addEventListener('click', ()=>{
             setActive('navPuzzleBtn');
-            // open knight placeholder in interactive page for now
-            try { localStorage.setItem('open_puzzle', 'knight'); } catch(e){}
-            window.location.href = 'chessgame.html';
+            // open knight tour modal within this static interface
+            try { openKnightModal(); } catch(e){
+              console.warn('openKnightModal not available', e);
+              // fallback: redirect to interactive page
+              try { localStorage.setItem('open_puzzle','knight'); } catch(_){}
+              window.location.href = 'chessgame.html';
+            }
           });
       }
     }
@@ -413,4 +417,186 @@
   // Expose for debugging if needed
   window.openEightModal = openEightModal;
   window.closeEightModal = closeEightModal;
+
+  // ---------------- Knight Tour modal logic for static page ----------------
+  let knightInitialized = false;
+  let knightBoard = Array(64).fill(-1); // -1 = unvisited, 0+ = move number
+
+  function openKnightModal(){
+    if (!knightInitialized) initKnightModal();
+    const modal = document.getElementById('knightModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+    renderKnightBoard();
+  }
+
+  function closeKnightModal(){
+    const modal = document.getElementById('knightModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  function initKnightModal(){
+    knightInitialized = true;
+    const container = document.getElementById('knightBoard');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let r=0;r<8;r++){
+      for (let c=0;c<8;c++){
+        const sq = document.createElement('div');
+        const isLight = (r + c) % 2 === 0;
+        sq.className = 'kt-square ' + (isLight ? 'light' : 'dark');
+        sq.dataset.row = r; sq.dataset.col = c;
+        sq.addEventListener('click', ()=>{
+          toggleKnightSquare(r,c);
+          renderKnightBoard();
+        });
+        container.appendChild(sq);
+      }
+    }
+
+    // wire controls
+    const solveBtn = document.getElementById('knightSolveBtn');
+    const clearBtn = document.getElementById('knightClearBtn');
+    const closeBtn = document.getElementById('knightCloseBtn');
+    const closeFooter = document.getElementById('knightCloseFooterBtn');
+
+    if (solveBtn) solveBtn.addEventListener('click', async ()=>{
+      solveBtn.disabled = true;
+      solveBtn.textContent = 'Solving...';
+      const sol = solveKnightTour();
+      if (sol) {
+        knightBoard = sol.slice();
+        // Animate the solution step by step
+        try {
+          await animateSolution(sol);
+        } catch (e) {
+          // fallback: show solution instantly
+          knightBoard = sol.slice();
+          renderKnightBoard();
+        }
+        // Always render final solution after animation
+        knightBoard = sol.slice();
+        renderKnightBoard();
+      } else alert('No knight tour solution found');
+      solveBtn.disabled = false;
+      solveBtn.textContent = 'Solve';
+    });
+    if (clearBtn) clearBtn.addEventListener('click', ()=>{ knightBoard = Array(64).fill(-1); renderKnightBoard(); });
+    if (closeBtn) closeBtn.addEventListener('click', closeKnightModal);
+    if (closeFooter) closeFooter.addEventListener('click', closeKnightModal);
+  }
+
+  function renderKnightBoard(){
+    const container = document.getElementById('knightBoard');
+    if (!container) return;
+    const squares = container.children;
+    const maxMove = Math.max(...knightBoard);
+    for (let r=0;r<8;r++){
+      for (let c=0;c<8;c++){
+        const i = r*8 + c;
+        const sq = squares[i];
+        sq.innerHTML = '';
+        const moveNum = knightBoard[i];
+        const isCurrent = (moveNum === maxMove && moveNum >= 0);
+        
+        sq.classList.remove('visited','current');
+        if (moveNum >= 0){
+          sq.classList.add('visited');
+          if (isCurrent) sq.classList.add('current');
+          
+          // Always show knight symbol
+          const kt = document.createElement('div');
+          kt.className = 'knight';
+          kt.textContent = '♘';
+          sq.appendChild(kt);
+          
+          // Show move number if not starting position
+          if (moveNum > 0){
+            const numEl = document.createElement('div');
+            numEl.className = 'move-num';
+            numEl.textContent = String(moveNum);
+            sq.appendChild(numEl);
+          }
+        }
+      }
+    }
+    const visitedCount = knightBoard.filter(x=>x>=0).length;
+    const countEl = document.getElementById('knightMoveCount'); if (countEl) countEl.textContent = String(visitedCount);
+  }
+
+  function toggleKnightSquare(r,c){
+    const idx = r*8 + c;
+    if (knightBoard[idx] >= 0){
+      knightBoard[idx] = -1;
+    } else {
+      const nextNum = knightBoard.filter(x=>x>=0).length;
+      if (nextNum === 0 || isKnightMoveLegal(r,c)){
+        knightBoard[idx] = nextNum;
+      }
+    }
+  }
+
+  function isKnightMoveLegal(r,c){
+    const lastMove = Math.max(...knightBoard);
+    if (lastMove < 0) return r === 0 && c === 0; // first move can be anywhere
+    for (let i=0;i<64;i++){
+      if (knightBoard[i] === lastMove){
+        const pr = Math.floor(i/8), pc = i % 8;
+        const dr = Math.abs(pr - r), dc = Math.abs(pc - c);
+        if ((dr === 2 && dc === 1) || (dr === 1 && dc === 2)) return true;
+      }
+    }
+    return false;
+  }
+
+  function solveKnightTour(){
+    const moves = [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]];
+    const board = Array(64).fill(-1);
+    
+    function backtrack(r,c,moveCount){
+      if (moveCount === 64) return true;
+      for (let [dr,dc] of moves){
+        const nr = r + dr, nc = c + dc;
+        if (nr>=0 && nr<8 && nc>=0 && nc<8 && board[nr*8+nc] === -1){
+          board[nr*8+nc] = moveCount;
+          if (backtrack(nr,nc,moveCount+1)) return true;
+          board[nr*8+nc] = -1;
+        }
+      }
+      return false;
+    }
+
+    board[0] = 0; // start at top-left
+    if (backtrack(0,0,1)) return board;
+    return null;
+  }
+
+  function animateSolution(sol){
+    return new Promise((resolve)=>{
+      let step = 0;
+      const interval = setInterval(()=>{
+        if (step < 64){
+          // Highlight only up to current step
+          const tempBoard = Array(64).fill(-1);
+          for (let i=0;i<64;i++){
+            if (sol[i] <= step) tempBoard[i] = sol[i];
+          }
+          knightBoard = tempBoard;
+          renderKnightBoard();
+          step++;
+        } else {
+          clearInterval(interval);
+          knightBoard = sol.slice();
+          renderKnightBoard();
+          resolve();
+        }
+      }, 30); // 30ms per move for smooth animation
+    });
+  }
+
+  window.openKnightModal = openKnightModal;
+  window.closeKnightModal = closeKnightModal;
 })();

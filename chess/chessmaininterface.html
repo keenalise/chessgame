@@ -70,5 +70,27 @@
       <div style="text-align:center;margin-top:8px;color:var(--text);">Queens placed: <span id="eightCount">0</span>/8</div>
     </div>
   </div>
+
+  <!-- Knight Tour Modal (static page) -->
+  <div id="knightModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content modal-center">
+      <div class="modal-header">
+        <h2>Knight Tour Puzzle</h2>
+        <button id="knightCloseBtn" class="modal-close">✕</button>
+      </div>
+      <p style="text-align:center;margin-top:6px;color:var(--text);">Move a knight to visit all 64 squares exactly once.</p>
+      <div id="knightControls" style="display:flex;gap:8px;justify-content:space-between;margin:12px 0;align-items:center;width:100%;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:14px;color:#888;">Moves: <span id="knightMoveCount">0</span>/64</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="knightSolveBtn" class="btn">Solve</button>
+          <button id="knightClearBtn" class="btn">Clear</button>
+          <button id="knightCloseFooterBtn" class="btn">Close</button>
+        </div>
+      </div>
+      <div id="knightBoard" class="kt-grid" aria-hidden="false"></div>
+    </div>
+  </div>
 </body>
 </html>
