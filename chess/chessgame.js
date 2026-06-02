@@ -2560,18 +2560,6 @@ function playMoveSound(type = 'move') {
     }
 }
 
-const sounds = {
-    move:    new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
-    capture: new Audio('https://lichess1.org/assets/sound/standard/Capture.mp3'),
-    check:   new Audio('https://lichess1.org/assets/sound/standard/Check.mp3'),
-    castle:  new Audio('https://lichess1.org/assets/sound/standard/Castle.mp3'),
-};
-
-function playMoveSound(type = 'move') {
-    const sound = sounds[type] || sounds.move;
-    sound.currentTime = 0;
-    sound.play().catch(() => {}); // Catch autoplay policy errors silently
-}
 
 
 
