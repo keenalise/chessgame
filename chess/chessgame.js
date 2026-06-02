@@ -2014,6 +2014,8 @@
             const message = document.getElementById('victoryMessage');
             const moveCountEl = document.getElementById('moveCount');
 
+            playMoveSound('gameEnd');
+
             // Build mate move notation (if available)
             let mateNotation = '';
             if (mateMove) {
@@ -2502,8 +2504,8 @@ const sounds = {
     capture: new Audio('https://lichess1.org/assets/sound/standard/Capture.mp3'),
     check:   new Audio('https://lichess1.org/assets/sound/standard/Check.mp3'),
     promote: new Audio('https://lichess1.org/assets/sound/standard/Promote.mp3'),
-    // Castle uses two quick move sounds
     move2:   new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
+    gameEnd: new Audio('https://lichess1.org/assets/sound/standard/GenericNotify.mp3'),
 };
 
 Object.values(sounds).forEach(s => { s.preload = 'auto'; s.load(); });
