@@ -651,15 +651,14 @@
             const currentPiece = board[row][col];
             const pieceColor = currentPiece.split('_')[0];
 
-            // Promote the pawn on the board
             const promotedPiece = `${pieceColor}_${pieceType}`;
             board[row][col] = promotedPiece;
             drawPieces();
 
-            // Hide the modal
             modal.style.display = 'none';
 
-            // If we have a pending promotion move, complete it now (switch turn, history, checkmate detection, etc.)
+            playMoveSound('promote'); // ADD THIS LINE
+
             if (pendingPromotionMove) {
                 const { startRow, startCol, row: endRow, col: endCol, isCapture, isEnPassant } = pendingPromotionMove;
                 completeMoveAfterPromotion(promotedPiece, startRow, startCol, endRow, endCol, isCapture, isEnPassant);
@@ -2497,67 +2496,21 @@
 
         // ---------------------------------------------------------------------------------------
 
-// Audio context for chess sounds
-let audioCtx = null;
+// Chess move sounds from Lichess CDN
+const sounds = {
+    move:    new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
+    capture: new Audio('https://lichess1.org/assets/sound/standard/Capture.mp3'),
+    check:   new Audio('https://lichess1.org/assets/sound/standard/Check.mp3'),
+    castle:  new Audio('https://lichess1.org/assets/sound/standard/Castle.mp3'),
+    promote: new Audio('https://lichess1.org/assets/sound/standard/Promote.mp3'),
+};
 
-function getAudioContext() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return audioCtx;
-}
+Object.values(sounds).forEach(s => { s.preload = 'auto'; s.load(); });
 
 function playMoveSound(type = 'move') {
-    const ctx = getAudioContext();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    if (type === 'capture') {
-        // Two-tone thud for captures
-        oscillator.frequency.setValueAtTime(300, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.15);
-        gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.2);
-    } else if (type === 'castle') {
-        // Double click sound
-        oscillator.frequency.setValueAtTime(500, ctx.currentTime);
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.1);
-
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.frequency.setValueAtTime(600, ctx.currentTime + 0.12);
-        gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.12);
-        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-        osc2.start(ctx.currentTime + 0.12);
-        osc2.stop(ctx.currentTime + 0.25);
-    } else if (type === 'check') {
-        // Sharp alert tone
-        oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.15);
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.2);
-    } else {
-        // Regular move — soft click
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(440, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08);
-        gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.1);
-    }
+    const sound = sounds[type] || sounds.move;
+    sound.currentTime = 0;
+    sound.play().catch(err => console.warn('Sound blocked:', err));
 }
 
 
