@@ -2501,13 +2501,24 @@ const sounds = {
     move:    new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
     capture: new Audio('https://lichess1.org/assets/sound/standard/Capture.mp3'),
     check:   new Audio('https://lichess1.org/assets/sound/standard/Check.mp3'),
-    castle:  new Audio('https://lichess1.org/assets/sound/standard/Castle.mp3'),
     promote: new Audio('https://lichess1.org/assets/sound/standard/Promote.mp3'),
+    // Castle uses two quick move sounds
+    move2:   new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
 };
 
 Object.values(sounds).forEach(s => { s.preload = 'auto'; s.load(); });
 
 function playMoveSound(type = 'move') {
+    if (type === 'castle') {
+        // Play move sound twice with a small delay to mimic king + rook moving
+        sounds.move.currentTime = 0;
+        sounds.move.play().catch(() => {});
+        setTimeout(() => {
+            sounds.move2.currentTime = 0;
+            sounds.move2.play().catch(() => {});
+        }, 150);
+        return;
+    }
     const sound = sounds[type] || sounds.move;
     sound.currentTime = 0;
     sound.play().catch(err => console.warn('Sound blocked:', err));
