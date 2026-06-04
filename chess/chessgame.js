@@ -272,12 +272,30 @@
             black: { kingside: true, queenside: true }
         };
 
-        // Piece symbols
-        const pieceSymbols = {
+       const pieceSymbols = {
             'white_pawn': '♙', 'white_rook': '♖', 'white_knight': '♘', 'white_bishop': '♗',
             'white_queen': '♕', 'white_king': '♔',
             'black_pawn': '♟', 'black_rook': '♜', 'black_knight': '♞', 'black_bishop': '♝',
             'black_queen': '♛', 'black_king': '♚'
+        };
+
+        // Lichess open-source piece images (Merida set - no API key needed)
+        const PIECE_SET = 'merida'; // Options: merida, cburnett, cardinal, alpha, anarcandy, caliente, california, celtic, chess7, chessnut, companion, disguised, dubrovny, fantasy, fresca, gioco, governor, horsey, icpieces, kiwen-suwi, kosal, leipzig, letter, libra, maestro, mono, mpchess, pirouetti, pixel, reillycraig, riohacha, shapes, spatial, staunty, tatiana
+        const PIECE_BASE_URL = `https://lichess1.org/assets/piece/${PIECE_SET}`;
+
+        const pieceImageMap = {
+            'white_king':   `${PIECE_BASE_URL}/wK.svg`,
+            'white_queen':  `${PIECE_BASE_URL}/wQ.svg`,
+            'white_rook':   `${PIECE_BASE_URL}/wR.svg`,
+            'white_bishop': `${PIECE_BASE_URL}/wB.svg`,
+            'white_knight': `${PIECE_BASE_URL}/wN.svg`,
+            'white_pawn':   `${PIECE_BASE_URL}/wP.svg`,
+            'black_king':   `${PIECE_BASE_URL}/bK.svg`,
+            'black_queen':  `${PIECE_BASE_URL}/bQ.svg`,
+            'black_rook':   `${PIECE_BASE_URL}/bR.svg`,
+            'black_bishop': `${PIECE_BASE_URL}/bB.svg`,
+            'black_knight': `${PIECE_BASE_URL}/bN.svg`,
+            'black_pawn':   `${PIECE_BASE_URL}/bP.svg`,
         };
 
         // Initialize game
@@ -349,27 +367,7 @@
             drawPieces();
         }
 
-        function drawPieces() {
-            const squares = document.querySelectorAll('.square');
-            squares.forEach(square => {
-                const row = parseInt(square.dataset.row);
-                const col = parseInt(square.dataset.col);
-                const piece = board[row][col];
-                
-                // Remove existing piece
-                const existingPiece = square.querySelector('.piece');
-                if (existingPiece) {
-                    existingPiece.remove();
-                }
-                
-                if (piece) {
-                    const pieceElement = document.createElement('div');
-                    pieceElement.className = `piece ${piece.split('_')[0]}`;
-                    pieceElement.textContent = pieceSymbols[piece];
-                    square.appendChild(pieceElement);
-                }
-            });
-        }
+        
 
         function handleClick(event) {
             if (isReadOnlyMode) {
@@ -1988,23 +1986,25 @@
                 const row = parseInt(square.dataset.row);
                 const col = parseInt(square.dataset.col);
                 const piece = board[row][col];
-                
-                // Remove existing piece
+
                 const existingPiece = square.querySelector('.piece');
-                if (existingPiece) {
-                    existingPiece.remove();
-                }
-                
+                if (existingPiece) existingPiece.remove();
+
                 if (piece) {
                     const pieceElement = document.createElement('div');
                     pieceElement.className = `piece ${piece.split('_')[0]}`;
-                    pieceElement.textContent = pieceSymbols[piece];
-                    
-                    // Apply rotation if board is flipped
+
+                    const img = document.createElement('img');
+                    img.src = pieceImageMap[piece];
+                    img.alt = piece;
+                    img.draggable = false;
+                    img.style.cssText = 'width:100%; height:100%; object-fit:contain; pointer-events:none;';
+
                     if (isBoardFlipped) {
                         pieceElement.style.transform = 'rotate(180deg)';
                     }
-                    
+
+                    pieceElement.appendChild(img);
                     square.appendChild(pieceElement);
                 }
             });
