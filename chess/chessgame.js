@@ -2324,24 +2324,23 @@ function toggleComputerMode() {
  * Call after every move to let the AI respond when it's its turn.
  * Safe to call even when isVsComputer is false.
  */
+// ADD at the very top of maybeLetAIMove:
 async function maybeLetAIMove() {
     if (!isVsComputer) return;
-    if (aiThinking)    return;
-    if (currentTurn === playerColor) return;   // human's turn
-
-    // Check game is still going
+    if (aiThinking) return;
+    if (currentTurn === playerColor) return;
     if (isCheckmate(currentTurn) || isStalemate(currentTurn)) return;
 
     aiThinking = true;
     updateStatus('🤖 Computer is thinking…');
 
-    const fen  = generateFEN();
+    const fen = generateFEN();
     const move = await fetchBestMove(fen);
 
-    aiThinking = false;
+    aiThinking = false; // ← ALWAYS reset, even if move is null
 
     if (!move) {
-        updateStatus('⚠️ Chess-API unreachable – make a move yourself');
+        updateStatus('🤖 No move found');
         return;
     }
 
@@ -2353,15 +2352,35 @@ async function maybeLetAIMove() {
  * Returns null on network / parse error.
  */
 async function fetchBestMove(fen, depth = 12) {
-    return new Promise((resolve) => {
-        try {
+    // 1. Try Lichess first - instant (~200ms) for known positions
+    try {
+        const encodedFen = encodeURIComponent(fen);
+        const res = await fetch(
+            `https://lichess.org/api/cloud-eval?fen=${encodedFen}&multiPv=1`,
+            { headers: { 'Accept': 'application/json' } }
+        );
+        if (res.ok) {
+            const data = await res.json();
+            const firstMove = data?.pvs?.[0]?.moves?.split(' ')?.[0];
+            if (firstMove) {
+                console.log('✅ Lichess move:', firstMove);
+                return firstMove;
+            }
+        }
+    } catch (err) {
+        console.warn('Lichess failed:', err);
+    }
+
+    // 2. Lichess didn't know this position - try Chess-API with short timeout
+    try {
+        const chessApiMove = await new Promise((resolve) => {
             const ws = new WebSocket('wss://chess-api.com/v1');
-            
+
+            // Only wait 5 seconds - if queued too long, not worth it
             const timeout = setTimeout(() => {
                 ws.close();
-                // Fallback to Lichess if Chess-API times out
-                fetchBestMoveLichess(fen).then(resolve);
-            }, 8000);
+                resolve(null);
+            }, 2000);
 
             ws.onopen = () => {
                 ws.send(JSON.stringify({ fen, depth, maxThinkingTime: 50 }));
@@ -2379,38 +2398,79 @@ async function fetchBestMove(fen, depth = 12) {
                 } catch (e) {
                     clearTimeout(timeout);
                     ws.close();
-                    fetchBestMoveLichess(fen).then(resolve);
+                    resolve(null);
                 }
             };
 
             ws.onerror = () => {
                 clearTimeout(timeout);
-                fetchBestMoveLichess(fen).then(resolve);
+                resolve(null);
             };
+        });
 
-        } catch (e) {
-            fetchBestMoveLichess(fen).then(resolve);
+        if (chessApiMove) {
+            console.log('✅ Chess-API move:', chessApiMove);
+            return chessApiMove;
         }
-    });
+    } catch (err) {
+        console.warn('Chess-API failed:', err);
+    }
+
+    // 3. Both APIs failed - instant random legal move
+    console.log('🎲 Using random legal move');
+    return getRandomLegalMove();
 }
 
 // Lichess cloud evaluation fallback - completely free, no queue
 async function fetchBestMoveLichess(fen) {
     try {
+        // Try Lichess cloud eval first (fast, but only knows common positions)
         const encodedFen = encodeURIComponent(fen);
         const res = await fetch(
             `https://lichess.org/api/cloud-eval?fen=${encodedFen}&multiPv=1`,
             { headers: { 'Accept': 'application/json' } }
         );
-        if (!res.ok) return null;
-        const data = await res.json();
-        // Lichess returns pvs[0].moves as a space-separated UCI move string
-        const firstMove = data?.pvs?.[0]?.moves?.split(' ')?.[0];
-        return firstMove || null;
+        if (res.ok) {
+            const data = await res.json();
+            const firstMove = data?.pvs?.[0]?.moves?.split(' ')?.[0];
+            if (firstMove) return firstMove;
+        }
     } catch (err) {
-        console.warn('Lichess API error:', err);
-        return null;
+        console.warn('Lichess cloud eval error:', err);
     }
+
+    // Fallback: pick a random legal move so game never gets stuck
+    return getRandomLegalMove();
+}
+
+function getRandomLegalMove() {
+    const moves = [];
+    for (let fromRow = 0; fromRow < 8; fromRow++) {
+        for (let fromCol = 0; fromCol < 8; fromCol++) {
+            const piece = board[fromRow][fromCol];
+            if (!piece || !piece.startsWith(currentTurn)) continue;
+            for (let toRow = 0; toRow < 8; toRow++) {
+                for (let toCol = 0; toCol < 8; toCol++) {
+                    if (!isValidMove(fromRow, fromCol, toRow, toCol, piece)) continue;
+                    // Check it doesn't leave king in check
+                    const captured = board[toRow][toCol];
+                    board[toRow][toCol] = piece;
+                    board[fromRow][fromCol] = null;
+                    const inCheck = isInCheck(currentTurn);
+                    board[fromRow][fromCol] = piece;
+                    board[toRow][toCol] = captured;
+                    if (!inCheck) {
+                        const uci =
+                            String.fromCharCode(97 + fromCol) + (8 - fromRow) +
+                            String.fromCharCode(97 + toCol)   + (8 - toRow);
+                        moves.push(uci);
+                    }
+                }
+            }
+        }
+    }
+    if (moves.length === 0) return null;
+    return moves[Math.floor(Math.random() * moves.length)];
 }
 
 /**
