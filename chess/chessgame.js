@@ -588,9 +588,14 @@
             
             const isCheck = isInCheck(currentTurn);
             const isCheckmateVal = isCheckmate(currentTurn);
-            
+
+            // Play check sound immediately here before checkGameEndConditions
+            if (isCheck && !isCheckmateVal) {
+                playMoveSound('check');
+            }
+
             addMoveToHistory(finalNotation, isCapture, isCheck, isCheckmateVal);
-            
+
             // Check game end conditions
             checkGameEndConditions();
             
@@ -648,6 +653,7 @@
             } else if (isInCheckNow) {
                 console.log(`${currentTurn} king is in check`);
                 highlightKingInCheck();
+                playMoveSound('check'); // ← add this line
             }
         }
         
@@ -2721,7 +2727,7 @@ function applyUCIMove(uci) {
 const sounds = {
     move:    new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
     capture: new Audio('https://lichess1.org/assets/sound/standard/Capture.mp3'),
-    check:   new Audio('https://lichess1.org/assets/sound/standard/Check.mp3'),
+    check:   new Audio('https://lichess1.org/assets/sound/standard/Error.mp3'), // ← change to Move.mp3 temporarily
     promote: new Audio('https://lichess1.org/assets/sound/standard/Promote.mp3'),
     move2:   new Audio('https://lichess1.org/assets/sound/standard/Move.mp3'),
     gameEnd: new Audio('https://lichess1.org/assets/sound/standard/GenericNotify.mp3'),
