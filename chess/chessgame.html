@@ -28,6 +28,11 @@
         <button class="btn btn-new" onclick="newGame()">New Game</button>
         <button class="btn btn-undo" onclick="undoMove()">Undo</button>
         <button class="btn btn-redo" onclick="redoMove()">Redo</button>
+        <button class="btn" id="vsComputerBtn"
+                style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;"
+                onclick="toggleComputerMode()">
+            🤖 vs Computer: OFF
+        </button>
         <!-- <button id="eightQueensBtn" class="btn" onclick="showEightQueensPuzzle()">8 Queens Puzzle</button> -->
       </div>
     </div>
@@ -52,7 +57,9 @@
 
     <!-- Status bar -->
     <div id="statusBar" class="status-bar">Ready to play - Double-click king for castling</div>
-    <div id="stockfishStatus" class="status-bar" style="margin-top:5px;font-size:0.95em;color:#f39c12;">Engine: Initializing...</div>
+    <div id="stockfishStatus" class="status-bar" style="margin-top:5px;font-size:0.95em;color:#6ee7b7;">⚡ Powered by Chess-API (Stockfish 18)</div>
+
+
   </div>
 
   <!-- Pawn promotion modal -->
@@ -163,7 +170,6 @@
   <!-- Game logic -->
   <script src="chessgame.js"></script>
   <!-- Stockfish helper (creates a same-origin-safe worker via Blob) -->
-  <script src="https://cdn.jsdelivr.net/npm/stockfish/stockfish.js"></script>
 
    
 </body>
