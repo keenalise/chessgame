@@ -595,7 +595,17 @@
             checkGameEndConditions();
             
             const displayMove = `${String.fromCharCode(97 + startCol)}${8-startRow} → ${String.fromCharCode(97 + endCol)}${8-endRow}`;
+            highlightLastMove(startRow, startCol, endRow, endCol);
             updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""} - Halfmoves: ${halfmoveClock}`);
+
+        }
+
+        function highlightLastMove(fromRow, fromCol, toRow, toCol) {
+            document.querySelectorAll('.last-move-from, .last-move-to').forEach(sq => {
+                sq.classList.remove('last-move-from', 'last-move-to');
+            });
+            getSquareElement(fromRow, fromCol).classList.add('last-move-from');
+            getSquareElement(toRow, toCol).classList.add('last-move-to');
         }
 
         // game end conditions
@@ -1027,6 +1037,7 @@
             selectedPiece = null;
             clearHighlights();
             drawPieces();
+            highlightLastMove(kingFrom.row, kingFrom.col, kingRow, newKingCol);
             
             const castleNotation = side === 'kingside' ? "O-O" : "O-O-O";
             addMoveToHistory(castleNotation, false, false, false, true);
