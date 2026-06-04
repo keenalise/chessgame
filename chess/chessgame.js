@@ -597,6 +597,8 @@
             const displayMove = `${String.fromCharCode(97 + startCol)}${8-startRow} → ${String.fromCharCode(97 + endCol)}${8-endRow}`;
             highlightLastMove(startRow, startCol, endRow, endCol);
             updateStatus(`Last move: ${displayMove}${isEnPassant ? " (en passant)" : ""} - Halfmoves: ${halfmoveClock}`);
+            // Let the AI respond after every human move
+            setTimeout(maybeLetAIMove, 300);
 
         }
 
@@ -1045,6 +1047,7 @@
             
             // Check game end conditions (including threefold repetition)
             checkGameEndConditions();
+            setTimeout(maybeLetAIMove, 300);
         }
 
         function updateCastlingRightsAfterMove(piece, fromRow, fromCol, toRow, toCol) {
@@ -2287,49 +2290,183 @@
         
 
         
-        // Analyze the current position
-        async function analyzeCurrentPosition() {
-            const fen = generateFENFromHistory(currentReviewMove);
-            const statusEl = document.getElementById('analysisStatus');
-            statusEl.textContent = 'Analyzing...';
-            statusEl.classList.add('analyzing');
+        // ============================================================
+//  PLAY VS COMPUTER  (Chess-API.com · no key required)
+// ============================================================
 
-            const data = await analyzePositionWithAPI(fen, reviewAnalysisDepth);
-            if (!data) {
-                statusEl.textContent = 'API error';
-                statusEl.classList.remove('analyzing');
-                return;
-            }
+let isVsComputer   = false;   // true while AI mode is active
+let playerColor    = 'white'; // human plays this color
+let aiThinking     = false;   // prevent double-calls
 
-            // Update UI with API results
-            document.getElementById('evaluationScore').textContent = data.evaluation;
-            document.getElementById('bestMove').textContent = data.bestMove || '-';
-            document.getElementById('pvMoves').textContent = data.pv ? data.pv.join(' ') : '-';
-            document.getElementById('analysisDepth').textContent = `Depth: ${data.depth || '-'}`;
-            document.getElementById('analysisNodes').textContent = `Nodes: ${data.nodes || '-'}`;
+/** Toggle AI opponent on/off */
+function toggleComputerMode() {
+    isVsComputer = !isVsComputer;
+    const btn = document.getElementById('vsComputerBtn');
+    if (!btn) return;
 
-            // Update evaluation bar
-            const evalFill = document.getElementById('evalFill');
-            let score = parseFloat(data.evaluation);
-            if (!isNaN(score)) {
-                const clampedScore = Math.max(-5, Math.min(5, score));
-                const percentage = ((clampedScore + 5) / 10) * 100;
-                evalFill.style.width = `${percentage}%`;
-                if (score > 1) {
-                    evalFill.style.background = 'linear-gradient(90deg, #95a5a6, #27ae60)';
-                } else if (score < -1) {
-                    evalFill.style.background = 'linear-gradient(90deg, #e74c3c, #95a5a6)';
-                } else {
-                    evalFill.style.background = '#95a5a6';
+    if (isVsComputer) {
+        btn.textContent  = '🤖 vs Computer: ON';
+        btn.style.background = 'linear-gradient(135deg,#8b5cf6,#6d28d9)';
+        playerColor = currentTurn;          // whoever's turn it is plays as human
+        updateStatus(`You are playing as ${playerColor}. Computer is thinking…`);
+        // If it's already the AI's turn, fire immediately
+        maybeLetAIMove();
+    } else {
+        btn.textContent  = '🤖 vs Computer: OFF';
+        btn.style.background = '';
+        aiThinking = false;
+        updateStatus('Computer mode off – play both sides');
+    }
+}
+
+/**
+ * Call after every move to let the AI respond when it's its turn.
+ * Safe to call even when isVsComputer is false.
+ */
+async function maybeLetAIMove() {
+    if (!isVsComputer) return;
+    if (aiThinking)    return;
+    if (currentTurn === playerColor) return;   // human's turn
+
+    // Check game is still going
+    if (isCheckmate(currentTurn) || isStalemate(currentTurn)) return;
+
+    aiThinking = true;
+    updateStatus('🤖 Computer is thinking…');
+
+    const fen  = generateFEN();
+    const move = await fetchBestMove(fen);
+
+    aiThinking = false;
+
+    if (!move) {
+        updateStatus('⚠️ Chess-API unreachable – make a move yourself');
+        return;
+    }
+
+    applyUCIMove(move);
+}
+
+/**
+ * POST the FEN to chess-api.com and return the best-move string (e.g. "e2e4")
+ * Returns null on network / parse error.
+ */
+async function fetchBestMove(fen, depth = 12) {
+    return new Promise((resolve) => {
+        try {
+            const ws = new WebSocket('wss://chess-api.com/v1');
+            
+            const timeout = setTimeout(() => {
+                ws.close();
+                // Fallback to Lichess if Chess-API times out
+                fetchBestMoveLichess(fen).then(resolve);
+            }, 8000);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ fen, depth, maxThinkingTime: 50 }));
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'log' || data.type === 'info') return;
+                    if (data.move || data.lan) {
+                        clearTimeout(timeout);
+                        ws.close();
+                        resolve(data.move || data.lan);
+                    }
+                } catch (e) {
+                    clearTimeout(timeout);
+                    ws.close();
+                    fetchBestMoveLichess(fen).then(resolve);
                 }
-            } else {
-                evalFill.style.width = '50%';
-                evalFill.style.background = '#95a5a6';
-            }
+            };
 
-            statusEl.textContent = 'Complete';
-            statusEl.classList.remove('analyzing');
+            ws.onerror = () => {
+                clearTimeout(timeout);
+                fetchBestMoveLichess(fen).then(resolve);
+            };
+
+        } catch (e) {
+            fetchBestMoveLichess(fen).then(resolve);
         }
+    });
+}
+
+// Lichess cloud evaluation fallback - completely free, no queue
+async function fetchBestMoveLichess(fen) {
+    try {
+        const encodedFen = encodeURIComponent(fen);
+        const res = await fetch(
+            `https://lichess.org/api/cloud-eval?fen=${encodedFen}&multiPv=1`,
+            { headers: { 'Accept': 'application/json' } }
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        // Lichess returns pvs[0].moves as a space-separated UCI move string
+        const firstMove = data?.pvs?.[0]?.moves?.split(' ')?.[0];
+        return firstMove || null;
+    } catch (err) {
+        console.warn('Lichess API error:', err);
+        return null;
+    }
+}
+
+/**
+ * Convert a UCI move string ("e2e4", "e7e8q") into a board move and execute it.
+ */
+function applyUCIMove(uci) {
+    if (!uci || uci.length < 4) return;
+
+    const fromCol = uci.charCodeAt(0) - 97;   // 'a'=0
+    const fromRow = 8 - parseInt(uci[1]);
+    const toCol   = uci.charCodeAt(2) - 97;
+    const toRow   = 8 - parseInt(uci[3]);
+    const promoChar = uci[4] || null;          // e.g. 'q', 'r', 'n', 'b'
+
+    const piece = board[fromRow][fromCol];
+    if (!piece) {
+        console.warn('applyUCIMove: no piece at', fromRow, fromCol, uci);
+        return;
+    }
+
+    // Manually drive selectedPiece then movePiece so all game logic fires
+    selectedPiece = { row: fromRow, col: fromCol };
+
+    // If it's a pawn promotion we need to auto-select after movePiece shows the dialog
+    if (promoChar && piece.endsWith('pawn') && (toRow === 0 || toRow === 7)) {
+        // Intercept promotion: movePiece will open the modal; we close it and pick the piece
+        const originalShow = window.showPromotionDialog;
+        window.showPromotionDialog = function(r, c) {
+            // hide dialog immediately, apply AI's chosen piece
+            const modal = document.getElementById('promotionModal');
+            if (modal) {
+                modal.dataset.row = r;
+                modal.dataset.col = c;
+                modal.style.display = 'none';
+            }
+            const pieceMap = { q:'queen', r:'rook', n:'knight', b:'bishop' };
+            const color    = piece.split('_')[0];
+            const promoted = `${color}_${pieceMap[promoChar] || 'queen'}`;
+            board[r][c]    = promoted;
+            drawPieces();
+
+            if (pendingPromotionMove) {
+                const pm = pendingPromotionMove;
+                pendingPromotionMove = null;
+                completeMoveAfterPromotion(promoted, pm.startRow, pm.startCol, pm.row, pm.col, pm.isCapture, pm.isEnPassant);
+            }
+            // Restore original dialog function
+            window.showPromotionDialog = originalShow;
+        };
+    }
+
+    movePiece(toRow, toCol);
+}
+// ============================================================
+//  END PLAY VS COMPUTER
+// ============================================================
+        
         
         // Generate FEN string from current board position
         function generateFEN() {
@@ -2370,11 +2507,21 @@
             if (castlingRights.black.kingside) castling += 'k';
             if (castlingRights.black.queenside) castling += 'q';
             fen += ` ${castling || '-'}`;
-            
             // En passant target square
             let epTarget = '-';
             if (enPassantTarget) {
-                epTarget = String.fromCharCode(97 + enPassantTarget.col) + (8 - enPassantTarget.row);
+                // Only include EP square if an enemy pawn can actually capture it
+                const epRow = enPassantTarget.row;
+                const epCol = enPassantTarget.col;
+                const attackerColor = currentTurn; // current turn is the one who can capture
+                const pawnDir = attackerColor === 'white' ? 1 : -1;
+                const canCapture = (
+                    (epCol > 0 && board[epRow + pawnDir]?.[epCol - 1] === `${attackerColor}_pawn`) ||
+                    (epCol < 7 && board[epRow + pawnDir]?.[epCol + 1] === `${attackerColor}_pawn`)
+                );
+                if (canCapture) {
+                    epTarget = String.fromCharCode(97 + epCol) + (8 - epRow);
+                }
             }
             fen += ` ${epTarget}`;
             
