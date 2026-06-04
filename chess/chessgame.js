@@ -1039,7 +1039,8 @@
             selectedPiece = null;
             clearHighlights();
             drawPieces();
-            highlightLastMove(kingFrom.row, kingFrom.col, kingRow, newKingCol);
+            highlightLastMove(kingRow, kingCol, kingRow, newKingCol);
+
             
             const castleNotation = side === 'kingside' ? "O-O" : "O-O-O";
             addMoveToHistory(castleNotation, false, false, false, true);
