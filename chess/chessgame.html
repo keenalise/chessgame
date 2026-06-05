@@ -169,8 +169,109 @@
 
   <!-- Game logic -->
   <script src="chessgame.js"></script>
-  <!-- Stockfish helper (creates a same-origin-safe worker via Blob) -->
 
-   
+
+  <!-- Game Review Modal -->
+<div id="reviewModal">
+  <div class="review-modal-box">
+
+    <!-- Header -->
+    <div class="review-header">
+      <h2>🔍 Game Review</h2>
+      <button class="review-close-btn" onclick="closeReviewModal()">×</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="reviewLoading" class="review-loading">
+      <div class="spinner-icon">⚙️</div>
+      <div id="reviewProgressText" class="review-progress-text">Preparing analysis...</div>
+      <div class="review-progress-bar">
+        <div id="reviewProgressFill" class="review-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Main content (shown after analysis) -->
+    <div id="reviewBody" class="review-body" style="display:none;">
+
+      <!-- Left column: eval bar + mini board + nav -->
+      <div class="review-board-col">
+        <div class="eval-bar-wrap">
+          <div class="eval-bar-vertical">
+            <div id="reviewEvalFill" class="eval-bar-fill"></div>
+          </div>
+          <div class="review-mini-board" id="reviewMiniBoard"></div>
+        </div>
+        <div style="text-align:center;font-size:0.75rem;color:#94a3b8;font-family:monospace;" id="reviewEvalLabel">0.0</div>
+        <div style="text-align:center;font-size:0.75rem;color:#64748b;" id="reviewMoveLabel">—</div>
+
+        <div class="review-nav">
+          <button class="review-nav-btn" id="rvFirst"  onclick="reviewNav('first')">⟪</button>
+          <button class="review-nav-btn" id="rvPrev"   onclick="reviewNav('prev')">❮</button>
+          <span class="review-nav-counter" id="rvCounter">0 / 0</span>
+          <button class="review-nav-btn" id="rvNext"   onclick="reviewNav('next')">❯</button>
+          <button class="review-nav-btn" id="rvLast"   onclick="reviewNav('last')">⟫</button>
+        </div>
+      </div>
+
+      <!-- Right column: stats + move list -->
+      <div class="review-stats-col">
+
+        <!-- Accuracy -->
+        <div class="review-card">
+          <div class="review-card-title">Accuracy</div>
+          <div class="accuracy-row">
+            <div class="accuracy-player">
+              <span class="accuracy-icon">♔</span>
+              <div class="accuracy-bar-bg">
+                <div id="rvWhiteAccBar" class="accuracy-bar-fill" style="width:0%;background:linear-gradient(90deg,#6fba2c,#4ade80)"></div>
+              </div>
+              <span id="rvWhiteAccPct" class="accuracy-pct" style="color:#6fba2c;">—</span>
+            </div>
+            <div class="accuracy-player">
+              <span class="accuracy-icon">♚</span>
+              <div class="accuracy-bar-bg">
+                <div id="rvBlackAccBar" class="accuracy-bar-fill" style="width:0%;background:linear-gradient(90deg,#6fba2c,#4ade80)"></div>
+              </div>
+              <span id="rvBlackAccPct" class="accuracy-pct" style="color:#6fba2c;">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ratings -->
+        <div class="review-card">
+          <div class="review-card-title">Estimated Performance</div>
+          <div class="ratings-row">
+            <div class="rating-block">
+              <div class="rating-label">♔ White</div>
+              <div id="rvWhiteRating" class="rating-val">—</div>
+            </div>
+            <div class="rating-block">
+              <div class="rating-label">♚ Black</div>
+              <div id="rvBlackRating" class="rating-val">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Classifications -->
+        <div class="review-card">
+          <div class="review-card-title">Move Classifications</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:0.7rem;color:#64748b;margin-bottom:6px;padding:0 6px;">
+            <span>White</span><span style="text-align:right">Black</span>
+          </div>
+          <div id="rvClfTable"></div>
+        </div>
+
+        <!-- Move list -->
+        <div class="review-card">
+          <div class="review-card-title">Move by Move</div>
+          <div id="rvMoveList" class="review-moves-grid"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
 </body>
 </html>
