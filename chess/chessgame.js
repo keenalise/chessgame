@@ -2752,140 +2752,340 @@ function playMoveSound(type = 'move') {
 }
 
 // ============================================================
-//  GAME REVIEW SYSTEM v2  (Chess.com-style)
+//  GAME REVIEW SYSTEM v4  — Pure local analysis (no external API)
 // ============================================================
 
 let rv = {
-    data: [],          // array of { moveIndex, move, prevEval, currEval, clf, isWhite }
-    index: 0,          // currently displayed move in review
-    evals: [],         // eval per gameStateHistory position
-    miniSquares: [],   // DOM elements for mini board
+    data: [],
+    index: 0,
+    evals: [],       // centipawn evals per gameStateHistory position
+    bestMoves: [],   // best move UCI string per position (from engine)
+    miniSquares: [],
 };
 
-// ── Classification ──────────────────────────────────────────
+// ── Classification definitions ────────────────────────────
 const CLF_INFO = {
-    'Book':       { color: '#818cf8', emoji: '📖', wW: 95,  wR: 95  },
-    'Brilliant':  { color: '#1bada6', emoji: '✨', wW: 100, wR: 100 },
-    'Best':       { color: '#6fba2c', emoji: '⭐', wW: 100, wR: 98  },
-    'Excellent':  { color: '#6fba2c', emoji: '🟢', wW: 95,  wR: 92  },
-    'Good':       { color: '#94a3b8', emoji: '✅', wW: 85,  wR: 80  },
-    'Inaccuracy': { color: '#f0a500', emoji: '⚠️', wW: 55,  wR: 55  },
-    'Mistake':    { color: '#e07c27', emoji: '❌', wW: 25,  wR: 30  },
-    'Blunder':    { color: '#ca3431', emoji: '💀', wW: 0,   wR: 10  },
+    'Brilliant': { color: '#1bada6', emoji: '✨', desc: 'Best move, hard to find' },
+    'Great':     { color: '#22d3ee', emoji: '!',  desc: 'Altered the course of the game' },
+    'Best':      { color: '#6fba2c', emoji: '⭐', desc: "Engine's top choice" },
+    'Excellent': { color: '#84cc16', emoji: '🟢', desc: 'Almost as good as best' },
+    'Good':      { color: '#94a3b8', emoji: '✅', desc: 'Decent but not best' },
+    'Book':      { color: '#818cf8', emoji: '📖', desc: 'Conventional opening move' },
+    'Inaccuracy':{ color: '#f0a500', emoji: '⚠️', desc: 'Weak move' },
+    'Mistake':   { color: '#e07c27', emoji: '❌', desc: 'Worsens position significantly' },
+    'Miss':      { color: '#a855f7', emoji: '👁', desc: 'Missed tactical opportunity' },
+    'Blunder':   { color: '#ca3431', emoji: '💀', desc: 'Loses material or the game' },
 };
 
-function classifyMove(prevCp, currCp, isWhite) {
-    const prev = isWhite ?  prevCp : -prevCp;
-    const curr = isWhite ?  currCp : -currCp;
-    const loss = prev - curr;
-    if (loss <= -150) return 'Brilliant';
-    if (loss <= 0)    return 'Best';
-    if (loss <= 20)   return 'Excellent';
-    if (loss <= 50)   return 'Good';
-    if (loss <= 100)  return 'Inaccuracy';
-    if (loss <= 200)  return 'Mistake';
-    return 'Blunder';
+// Accuracy score per classification (for accuracy % calculation)
+const CLF_ACCURACY = {
+    'Brilliant': 100,
+    'Great':     100,
+    'Best':      100,
+    'Excellent':  95,
+    'Good':       85,
+    'Book':       100,
+    'Inaccuracy': 60,
+    'Mistake':    35,
+    'Miss':       50,
+    'Blunder':    10,
+};
+
+// ── Stockfish engine wrapper ──────────────────────────────
+let sfWorker = null;
+let sfReady  = false;
+
+function initStockfish() {
+    return new Promise((resolve, reject) => {
+        if (sfWorker && sfReady) { resolve(); return; }
+        try {
+            sfWorker = new Worker('stockfish.js');
+        } catch(e) {
+            try { sfWorker = new Worker('stockfish/stockfish.js'); }
+            catch(e2) { reject('Stockfish not found'); return; }
+        }
+        sfWorker.onmessage = e => {
+            if (e.data === 'uciok' || e.data.includes('uciok')) {
+                sfWorker.postMessage('isready');
+            }
+            if (e.data === 'readyok' || e.data.includes('readyok')) {
+                sfReady = true;
+                resolve();
+            }
+        };
+        sfWorker.onerror = () => reject('Stockfish worker error');
+        sfWorker.postMessage('uci');
+        setTimeout(() => { if (!sfReady) reject('Stockfish timeout'); }, 8000);
+    });
 }
 
-// ── Eval fetching ─────────────────────────────────────────
+// Evaluate a FEN position — returns { cp: centipawns, bestMove: uci }
+// cp is always from White's perspective
+function engineEval(fen, depthMs = 300) {
+    return new Promise(resolve => {
+        if (!sfWorker || !sfReady) { resolve({ cp: 0, bestMove: null }); return; }
+
+        let cp = 0, bestMove = null, mateIn = null;
+        const timeout = setTimeout(() => {
+            sfWorker.onmessage = null;
+            resolve({ cp: mateIn != null ? (mateIn > 0 ? 10000 : -10000) : cp, bestMove });
+        }, depthMs + 500);
+
+        sfWorker.onmessage = e => {
+            const line = e.data;
+            if (typeof line !== 'string') return;
+
+            // parse score
+            const mateM = line.match(/score mate (-?\d+)/);
+            if (mateM) mateIn = parseInt(mateM[1]);
+
+            const cpM = line.match(/score cp (-?\d+)/);
+            if (cpM) cp = parseInt(cpM[1]);
+
+            // bestmove line — done
+            const bmM = line.match(/^bestmove\s+(\S+)/);
+            if (bmM) {
+                bestMove = bmM[1] === '(none)' ? null : bmM[1];
+                clearTimeout(timeout);
+                sfWorker.onmessage = null;
+                resolve({ cp: mateIn != null ? (mateIn > 0 ? 10000 : -10000) : cp, bestMove });
+            }
+        };
+
+        sfWorker.postMessage('ucinewgame');
+        sfWorker.postMessage(`position fen ${fen}`);
+        sfWorker.postMessage(`go movetime ${depthMs}`);
+    });
+}
+
+// ── Classify a move ───────────────────────────────────────
+// prevCp, currCp  = centipawns from White's POV
+// isWhite         = whose move it was
+// playedUci       = the move played (e.g. "e2e4")
+// bestUci         = engine's top choice
+// prevBestCp      = engine's eval of the PREVIOUS position (to detect missed tactics)
+function classifyMoveLocal({
+    prevCp, currCp, isWhite,
+    playedUci, bestUci,
+    prevBestCp,
+    moveIndex, totalMoves
+}) {
+    // Convert to player's perspective
+    const sign    = isWhite ? 1 : -1;
+    const prev    = prevCp * sign;   // eval before move, from mover's POV
+    const curr    = currCp * sign;   // eval after move,  from mover's POV
+    const loss    = prev - curr;     // cp lost by this move (positive = bad)
+    const best    = (prevBestCp ?? prevCp) * sign; // best possible after this move
+
+    // Book: first 10 half-moves (5 full moves each side)
+    if (moveIndex <= 10) return 'Book';
+
+    // Blunder: lost ≥ 300cp OR gave away a winning position (>= +200 → <= -100)
+    if (loss >= 300) return 'Blunder';
+    if (prev >= 200 && curr <= -100) return 'Blunder';
+
+    // Mistake: lost 150–299cp
+    if (loss >= 150) return 'Mistake';
+
+    // Miss: had a winning tactic (engine sees ≥ 150cp gain) but didn't take it,
+    // and the played move kept eval roughly equal (not a blunder/mistake itself)
+    // i.e. bestUci would have improved by ≥ 150cp but played move only improved ≤ 30cp
+    const engineGain  = best - prev;   // how much engine's top move gains
+    const playedGain  = curr - prev;   // how much played move gained
+    if (engineGain >= 150 && playedGain <= 30 && loss < 150) return 'Miss';
+
+    // Inaccuracy: lost 50–149cp
+    if (loss >= 50) return 'Inaccuracy';
+
+    // Played the engine's best move exactly?
+    const playedBest = playedUci && bestUci && playedUci === bestUci;
+
+    // Good: lost 20–49cp
+    if (loss >= 20) return 'Good';
+
+    // From here loss < 20cp (excellent or better)
+
+    // Brilliant: played exact best move AND it's a sacrifice or counter-intuitive
+    // Heuristic: eval was worse for the player (curr > prev, i.e. the move improved things
+    // by ≥ 100cp) AND it IS the engine's top move
+    if (playedBest && (curr - prev) >= 100 && loss <= 0) return 'Brilliant';
+
+    // Great: played best move AND it was a turning-point move
+    // (position swung by ≥ 150cp in player's favour)
+    if (playedBest && (curr - prev) >= 150) return 'Great';
+
+    // Best: played engine's top choice
+    if (playedBest) return 'Best';
+
+    // Excellent: near-best (loss < 20)
+    if (loss < 20) return 'Excellent';
+
+    return 'Good';
+}
+
+// ── FEN generator helper ──────────────────────────────────
 function getFENAtStateIndex(i) {
     if (!gameStateHistory[i]) return null;
     const s = gameStateHistory[i];
-    const save = { board: board.map(r=>[...r]), currentTurn, castlingRights: JSON.parse(JSON.stringify(castlingRights)), enPassantTarget, halfmoveClock };
-    board = s.board.map(r=>[...r]);
+    const save = {
+        board: board.map(r => [...r]),
+        currentTurn,
+        castlingRights: JSON.parse(JSON.stringify(castlingRights)),
+        enPassantTarget,
+        halfmoveClock
+    };
+    board = s.board.map(r => [...r]);
     currentTurn = s.currentTurn;
     castlingRights = JSON.parse(JSON.stringify(s.castlingRights));
     enPassantTarget = s.enPassantTarget;
     halfmoveClock = s.halfmoveClock;
     const fen = generateFEN();
-    board = save.board; currentTurn = save.currentTurn;
-    castlingRights = save.castlingRights; enPassantTarget = save.enPassantTarget; halfmoveClock = save.halfmoveClock;
+    board = save.board;
+    currentTurn = save.currentTurn;
+    castlingRights = save.castlingRights;
+    enPassantTarget = save.enPassantTarget;
+    halfmoveClock = save.halfmoveClock;
     return fen;
 }
 
-async function fetchEval(fen) {
-    // 1. Lichess cloud (fast, free)
+// ── Convert internal move object → UCI string ─────────────
+function moveToUCI(move) {
+    if (!move) return null;
     try {
-        const r = await fetch(`https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=1`, { headers: { Accept: 'application/json' } });
-        if (r.ok) {
-            const d = await r.json();
-            const pv = d?.pvs?.[0];
-            if (pv) {
-                if (pv.mate != null) return pv.mate > 0 ? 1000 : -1000;
-                return pv.cp / 100;
-            }
-        }
-    } catch (_) {}
-    // 2. Chess-API WebSocket
-    return new Promise(res => {
-        try {
-            const ws = new WebSocket('wss://chess-api.com/v1');
-            const t = setTimeout(() => { ws.close(); res(0); }, 5000);
-            ws.onopen = () => ws.send(JSON.stringify({ fen, depth: 12 }));
-            ws.onmessage = e => {
-                try {
-                    const d = JSON.parse(e.data);
-                    if (d.type === 'log' || d.type === 'info') return;
-                    if (d.eval !== undefined || d.evaluation !== undefined) {
-                        clearTimeout(t); ws.close(); res(parseFloat(d.eval ?? d.evaluation) || 0);
-                    }
-                } catch(_) { clearTimeout(t); ws.close(); res(0); }
-            };
-            ws.onerror = () => { clearTimeout(t); res(0); };
-        } catch(_) { res(0); }
-    });
+        const files = 'abcdefgh';
+        const fromCol = move.from?.col ?? move.kingFrom?.col;
+        const fromRow = move.from?.row ?? move.kingFrom?.row;
+        const toCol   = move.to?.col   ?? move.kingTo?.col;
+        const toRow   = move.to?.row   ?? move.kingTo?.row;
+        if (fromCol == null || fromRow == null || toCol == null || toRow == null) return null;
+
+        // Board rows: row 0 = rank 8, row 7 = rank 1
+        const from = files[fromCol] + (8 - fromRow);
+        const to   = files[toCol]   + (8 - toRow);
+        const promo = move.promotion ? move.promotion[1].toLowerCase() : '';
+        return from + to + promo;
+    } catch(_) { return null; }
 }
 
 // ── Main entry point ──────────────────────────────────────
 async function startGameReview() {
     if (!moveHistory.length) { alert('Play some moves first!'); return; }
 
-    // Show modal with loading state
     document.getElementById('reviewModal').style.display = 'flex';
     document.getElementById('reviewLoading').style.display = 'block';
     document.getElementById('reviewBody').style.display = 'none';
     document.getElementById('reviewProgressFill').style.width = '0%';
+    document.getElementById('reviewProgressText').textContent = 'Initializing engine…';
 
-    const total = gameStateHistory.length;
-    rv.evals = [];
+    // Try to init Stockfish; fall back to heuristic-only if unavailable
+    let engineAvailable = false;
+    try {
+        await initStockfish();
+        engineAvailable = true;
+    } catch(e) {
+        console.warn('Stockfish unavailable, using heuristic classifier:', e);
+    }
 
-    for (let i = 0; i < total; i++) {
-        const pct = Math.round((i / total) * 100);
+    // ── Collect ALL positions including the final game-over state ──
+    // gameStateHistory[0]  = initial position (before move 1)
+    // gameStateHistory[i]  = position AFTER move i
+    // moveHistory[i-1]     = the move that led to gameStateHistory[i]
+    //
+    // IMPORTANT: Some engines/implementations don't push a final state after
+    // checkmate. We force-collect the current board state as the last entry.
+
+    const stateCount = gameStateHistory.length;
+    const moveCount  = moveHistory.length;
+
+    // Ensure we have enough states for all moves
+    // states needed = moveCount + 1  (initial + one per move)
+    const totalPositions = Math.max(stateCount, moveCount + 1);
+
+    rv.evals     = new Array(totalPositions).fill(0);
+    rv.bestMoves = new Array(totalPositions).fill(null);
+
+    for (let i = 0; i < totalPositions; i++) {
+        const pct = Math.round((i / totalPositions) * 100);
         document.getElementById('reviewProgressText').textContent =
-            `Analyzing position ${i + 1} of ${total}…`;
+            `Analyzing position ${i + 1} of ${totalPositions}…`;
         document.getElementById('reviewProgressFill').style.width = pct + '%';
 
-        const fen = getFENAtStateIndex(i);
-        const ev = fen ? await fetchEval(fen) : 0;
-        rv.evals.push(ev);
-        await new Promise(r => setTimeout(r, 150));
+        const fen = i < stateCount ? getFENAtStateIndex(i) : null;
+
+        if (fen && engineAvailable) {
+            const result = await engineEval(fen, 400);
+            rv.evals[i]     = result.cp;
+            rv.bestMoves[i] = result.bestMove;
+        } else if (fen) {
+            // Heuristic eval: use material count as a rough eval
+            rv.evals[i]     = heuristicEval(i < stateCount ? gameStateHistory[i] : null);
+            rv.bestMoves[i] = null;
+        }
+
+        await new Promise(r => setTimeout(r, 50));
     }
 
-    // Build per-move data
+    // ── Build per-move data ──
     rv.data = [];
-    for (let i = 1; i < rv.evals.length; i++) {
+    for (let i = 1; i < totalPositions; i++) {
         const move = moveHistory[i - 1];
         if (!move) continue;
-        const isWhite = move.turn === 'white';
-        const isBook = i <= 10;
-        const clfKey = isBook ? 'Book' : classifyMove(rv.evals[i-1]*100, rv.evals[i]*100, isWhite);
-        rv.data.push({ moveIndex: i, move, prevEval: rv.evals[i-1], currEval: rv.evals[i], clf: clfKey, isWhite });
+
+        const isWhite    = move.turn === 'white';
+        const playedUci  = moveToUCI(move);
+        // bestMove at position i-1 = what engine recommended before this move
+        const bestUci    = rv.bestMoves[i - 1];
+
+        // prevBestCp: how much the engine's best move would have scored
+        // We use rv.evals[i] as a proxy (the position after the played move)
+        // and compare against what the engine predicted from position i-1
+        // The engine's top eval from position i-1 (from the mover's perspective)
+        // would be approximately -rv.evals[i-1] flipped? No — the engine already
+        // returns eval from White's POV, so we just use the raw values.
+        const clf = classifyMoveLocal({
+            prevCp:     rv.evals[i - 1],
+            currCp:     rv.evals[i],
+            isWhite,
+            playedUci,
+            bestUci,
+            prevBestCp: rv.evals[i - 1],   // best possible = engine's eval of prev position
+            moveIndex:  i,
+            totalMoves: totalPositions - 1
+        });
+
+        rv.data.push({
+            moveIndex: i,
+            move,
+            prevEval: rv.evals[i - 1],
+            currEval: rv.evals[i],
+            clf,
+            isWhite,
+            playedUci,
+            bestUci
+        });
     }
 
-    // Build mini board
     buildReviewMiniBoard();
-
-    // Render stats
     renderReviewStats();
 
-    // Show content
     document.getElementById('reviewProgressFill').style.width = '100%';
     document.getElementById('reviewLoading').style.display = 'none';
     document.getElementById('reviewBody').style.display = 'flex';
 
-    // Start at move 0
     rv.index = 0;
     renderReviewMove(0);
+}
+
+// ── Heuristic eval (fallback when no engine) ─────────────
+const PIECE_VALUES = { wP:100, wN:320, wB:330, wR:500, wQ:900, wK:0,
+                       bP:-100, bN:-320, bB:-330, bR:-500, bQ:-900, bK:0 };
+function heuristicEval(state) {
+    if (!state?.board) return 0;
+    let score = 0;
+    for (let r = 0; r < 8; r++)
+        for (let c = 0; c < 8; c++)
+            score += PIECE_VALUES[state.board[r][c]] || 0;
+    return score;
 }
 
 // ── Mini board ────────────────────────────────────────────
@@ -2896,7 +3096,7 @@ function buildReviewMiniBoard() {
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const sq = document.createElement('div');
-            sq.className = 'review-mini-sq ' + ((r+c)%2===0 ? 'light' : 'dark');
+            sq.className = 'review-mini-sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
             el.appendChild(sq);
             rv.miniSquares.push(sq);
         }
@@ -2907,8 +3107,8 @@ function renderMiniBoardState(stateIndex) {
     if (!gameStateHistory[stateIndex]) return;
     const state = gameStateHistory[stateIndex];
     rv.miniSquares.forEach((sq, idx) => {
-        const r = Math.floor(idx/8), c = idx%8;
-        sq.classList.remove('last-from','last-to');
+        const r = Math.floor(idx / 8), c = idx % 8;
+        sq.classList.remove('last-from', 'last-to');
         sq.innerHTML = '';
         const piece = state.board[r][c];
         if (piece && pieceImageMap[piece]) {
@@ -2921,49 +3121,54 @@ function renderMiniBoardState(stateIndex) {
 }
 
 function highlightReviewMove(d) {
-    if (!d || !d.move) return;
+    if (!d?.move) return;
     const from = d.move.from || d.move.kingFrom;
     const to   = d.move.to   || d.move.kingTo;
     if (!from || !to) return;
-    rv.miniSquares[from.row*8+from.col].classList.add('last-from');
-    rv.miniSquares[to.row*8+to.col].classList.add('last-to');
+    rv.miniSquares[from.row * 8 + from.col].classList.add('last-from');
+    rv.miniSquares[to.row * 8 + to.col].classList.add('last-to');
 }
 
-// ── Render a single review move ───────────────────────────
+// ── Render single review move ─────────────────────────────
 function renderReviewMove(idx) {
     idx = Math.max(0, Math.min(rv.data.length - 1, idx));
     rv.index = idx;
     const d = rv.data[idx];
     if (!d) return;
 
-    // Mini board
     renderMiniBoardState(d.moveIndex);
     highlightReviewMove(d);
 
-    // Eval bar: white fill from bottom, range -10..+10
-    const clampedEval = Math.max(-10, Math.min(10, d.currEval));
-    const fillPct = ((clampedEval + 10) / 20) * 100;
+    // Eval bar (display in pawns, store in cp)
+    const evalPawns  = d.currEval / 100;
+    const clamped    = Math.max(-10, Math.min(10, evalPawns));
+    const fillPct    = ((clamped + 10) / 20) * 100;
     document.getElementById('reviewEvalFill').style.height = fillPct + '%';
-    const evalStr = Math.abs(d.currEval) > 90 ? (d.currEval > 0 ? 'M+' : 'M-') :
-        (d.currEval >= 0 ? '+' : '') + d.currEval.toFixed(2);
+
+    const isMate  = Math.abs(d.currEval) >= 9000;
+    const evalStr = isMate
+        ? (d.currEval > 0 ? 'M+' : 'M-')
+        : (evalPawns >= 0 ? '+' : '') + evalPawns.toFixed(2);
     document.getElementById('reviewEvalLabel').textContent = evalStr;
 
-    // Move label
     const moveNum = Math.ceil(d.moveIndex / 2);
     const sideStr = d.isWhite ? 'White' : 'Black';
-    const info = CLF_INFO[d.clf];
+    const info    = CLF_INFO[d.clf];
     document.getElementById('reviewMoveLabel').innerHTML =
-        `<span style="color:${info.color}">${info.emoji} ${d.clf}</span> — Move ${moveNum} (${sideStr})`;
+        `<span style="color:${info.color}">${info.emoji} ${d.clf}</span> — Move ${moveNum} (${sideStr})<br>
+         <span style="font-size:0.7rem;color:#64748b;">${info.desc}</span>`;
 
-    // Counter
-    document.getElementById('rvCounter').textContent = `${idx+1} / ${rv.data.length}`;
+    document.getElementById('rvCounter').textContent = `${idx + 1} / ${rv.data.length}`;
 
-    // Highlight active in list
+    // Highlight in list
     document.querySelectorAll('.rmove').forEach(el => el.classList.remove('active'));
     const activeEl = document.getElementById(`rmove-${idx}`);
-    if (activeEl) { activeEl.classList.add('active'); activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    if (activeEl) {
+        activeEl.classList.add('active');
+        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
 
-    // Restore main board too
+    // Sync main board
     if (gameStateHistory[d.moveIndex]) {
         restoreGameState(gameStateHistory[d.moveIndex]);
         drawPieces();
@@ -2974,7 +3179,7 @@ function renderReviewMove(idx) {
 }
 
 function reviewNav(dir) {
-    if (dir === 'first') renderReviewMove(0);
+    if      (dir === 'first') renderReviewMove(0);
     else if (dir === 'prev')  renderReviewMove(rv.index - 1);
     else if (dir === 'next')  renderReviewMove(rv.index + 1);
     else if (dir === 'last')  renderReviewMove(rv.data.length - 1);
@@ -2987,68 +3192,87 @@ function updateReviewNavBtns() {
     document.getElementById('rvLast').disabled  = rv.index >= rv.data.length - 1;
 }
 
-// ── Stats rendering ───────────────────────────────────────
+// ── Accuracy & Rating ─────────────────────────────────────
 function calcAccuracy(moves) {
-    if (!moves.length) return 100;
-    return Math.round(moves.reduce((s,d) => s + (CLF_INFO[d.clf]?.wW ?? 75), 0) / moves.length);
-}
-function calcRating(moves) {
-    if (!moves.length) return 1200;
-    const avg = moves.reduce((s,d) => s + (CLF_INFO[d.clf]?.wR ?? 75), 0) / moves.length;
-    return Math.round(800 + avg * 14);
+    // Exclude Book moves — they're openings, not skill
+    const rated = moves.filter(d => d.clf !== 'Book');
+    if (!rated.length) return 100;
+    const sum = rated.reduce((s, d) => s + (CLF_ACCURACY[d.clf] ?? 75), 0);
+    return Math.round(sum / rated.length);
 }
 
+function calcRating(moves) {
+    const rated = moves.filter(d => d.clf !== 'Book');
+    if (!rated.length) return null;
+
+    let totalLoss = 0, count = 0;
+    for (const d of rated) {
+        const sign = d.isWhite ? 1 : -1;
+        const prev = d.prevEval * sign;
+        const curr = d.currEval * sign;
+        const loss = Math.max(0, prev - curr);
+        totalLoss += loss;
+        count++;
+    }
+    const avgCpLoss = count > 0 ? totalLoss / count : 0;
+    // Exponential decay: 0cp ≈ 2800, 50cp ≈ ~2000, 150cp ≈ ~1200, 300cp ≈ ~700
+    const rating = Math.round(2900 * Math.exp(-0.009 * avgCpLoss));
+    return Math.max(400, Math.min(3000, rating));
+}
+
+// ── Stats rendering ───────────────────────────────────────
 function renderReviewStats() {
-    const white = rv.data.filter(d => d.isWhite);
+    const white = rv.data.filter(d =>  d.isWhite);
     const black = rv.data.filter(d => !d.isWhite);
 
     const wAcc = calcAccuracy(white), bAcc = calcAccuracy(black);
     const wRat = calcRating(white),   bRat = calcRating(black);
 
-    const accColor = pct => pct >= 90 ? '#6fba2c' : pct >= 70 ? '#f0a500' : '#ca3431';
+    const accColor = p => p >= 90 ? '#6fba2c' : p >= 70 ? '#f0a500' : '#ca3431';
 
-    document.getElementById('rvWhiteAccPct').textContent = wAcc + '%';
-    document.getElementById('rvWhiteAccPct').style.color = accColor(wAcc);
-    document.getElementById('rvWhiteAccBar').style.width = wAcc + '%';
-    document.getElementById('rvWhiteAccBar').style.background = `linear-gradient(90deg, ${accColor(wAcc)}, ${accColor(wAcc)}99)`;
-
-    document.getElementById('rvBlackAccPct').textContent = bAcc + '%';
-    document.getElementById('rvBlackAccPct').style.color = accColor(bAcc);
-    document.getElementById('rvBlackAccBar').style.width = bAcc + '%';
-    document.getElementById('rvBlackAccBar').style.background = `linear-gradient(90deg, ${accColor(bAcc)}, ${accColor(bAcc)}99)`;
-
-    document.getElementById('rvWhiteRating').textContent = wRat;
-    document.getElementById('rvBlackRating').textContent = bRat;
+    ['White','Black'].forEach((side, si) => {
+        const acc = si === 0 ? wAcc : bAcc;
+        const rat = si === 0 ? wRat : bRat;
+        const pfx = si === 0 ? 'rvWhite' : 'rvBlack';
+        document.getElementById(pfx + 'AccPct').textContent   = acc + '%';
+        document.getElementById(pfx + 'AccPct').style.color   = accColor(acc);
+        document.getElementById(pfx + 'AccBar').style.width   = acc + '%';
+        document.getElementById(pfx + 'AccBar').style.background =
+            `linear-gradient(90deg,${accColor(acc)},${accColor(acc)}99)`;
+        document.getElementById(pfx + 'Rating').textContent   = rat ?? '—';
+    });
 
     // Classification table
-    const labels = ['Brilliant','Best','Excellent','Good','Book','Inaccuracy','Mistake','Blunder'];
-    const wCounts = {}, bCounts = {};
-    labels.forEach(l => { wCounts[l]=0; bCounts[l]=0; });
+    const labels = ['Brilliant','Great','Best','Excellent','Good','Book','Inaccuracy','Mistake','Miss','Blunder'];
+    const wC = {}, bC = {};
+    labels.forEach(l => { wC[l] = 0; bC[l] = 0; });
     rv.data.forEach(d => {
-        if (d.isWhite) wCounts[d.clf] = (wCounts[d.clf]||0)+1;
-        else           bCounts[d.clf] = (bCounts[d.clf]||0)+1;
+        if (d.isWhite) wC[d.clf] = (wC[d.clf] || 0) + 1;
+        else           bC[d.clf] = (bC[d.clf] || 0) + 1;
     });
 
     document.getElementById('rvClfTable').innerHTML = labels.map(label => {
         const info = CLF_INFO[label];
-        const w = wCounts[label]||0, b = bCounts[label]||0;
+        const w = wC[label] || 0, b = bC[label] || 0;
         if (!w && !b) return '';
         return `<div class="clf-row">
-            <span class="clf-count">${w||''}</span>
+            <span class="clf-count">${w || ''}</span>
             <span class="clf-label" style="color:${info.color}">${info.emoji} ${label}</span>
-            <span class="clf-count">${b||''}</span>
+            <span class="clf-count">${b || ''}</span>
         </div>`;
     }).join('');
 
     // Move list
     document.getElementById('rvMoveList').innerHTML = rv.data.map((d, i) => {
-        const info = CLF_INFO[d.clf];
-        const moveNum = Math.ceil(d.moveIndex/2);
-        const side = d.isWhite ? '♔' : '♚';
-        const ev = Math.abs(d.currEval) > 90 ? (d.currEval>0?'M+':'M-') :
-            (d.currEval>=0?'+':'')+d.currEval.toFixed(2);
+        const info    = CLF_INFO[d.clf];
+        const moveNum = Math.ceil(d.moveIndex / 2);
+        const side    = d.isWhite ? '♔' : '♚';
+        const ep      = d.currEval / 100;
+        const isMate  = Math.abs(d.currEval) >= 9000;
+        const ev      = isMate ? (d.currEval > 0 ? 'M+' : 'M-')
+                               : (ep >= 0 ? '+' : '') + ep.toFixed(2);
         return `<div class="rmove" id="rmove-${i}" onclick="renderReviewMove(${i})">
-            <span class="rmove-num">${moveNum}${d.isWhite?'.':'...'}</span>
+            <span class="rmove-num">${moveNum}${d.isWhite ? '.' : '...'}</span>
             <span class="rmove-side">${side}</span>
             <span class="rmove-clf" style="color:${info.color}">${info.emoji} ${d.clf}</span>
             <span class="rmove-eval">${ev}</span>
@@ -3061,17 +3285,14 @@ function closeReviewModal() {
     goToLivePosition();
 }
 
-// Expose for the Review Game button in victory modal
 function enableGameReview() {
     const btn = document.getElementById('reviewGameBtn');
     if (btn) btn.style.opacity = '1';
 }
 
 // ============================================================
-//  END GAME REVIEW SYSTEM v2
+//  END GAME REVIEW SYSTEM v4
 // ============================================================
-
-
 
 
 
