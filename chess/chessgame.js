@@ -2751,6 +2751,326 @@ function playMoveSound(type = 'move') {
     sound.play().catch(err => console.warn('Sound blocked:', err));
 }
 
+// ============================================================
+//  GAME REVIEW SYSTEM v2  (Chess.com-style)
+// ============================================================
+
+let rv = {
+    data: [],          // array of { moveIndex, move, prevEval, currEval, clf, isWhite }
+    index: 0,          // currently displayed move in review
+    evals: [],         // eval per gameStateHistory position
+    miniSquares: [],   // DOM elements for mini board
+};
+
+// ── Classification ──────────────────────────────────────────
+const CLF_INFO = {
+    'Book':       { color: '#818cf8', emoji: '📖', wW: 95,  wR: 95  },
+    'Brilliant':  { color: '#1bada6', emoji: '✨', wW: 100, wR: 100 },
+    'Best':       { color: '#6fba2c', emoji: '⭐', wW: 100, wR: 98  },
+    'Excellent':  { color: '#6fba2c', emoji: '🟢', wW: 95,  wR: 92  },
+    'Good':       { color: '#94a3b8', emoji: '✅', wW: 85,  wR: 80  },
+    'Inaccuracy': { color: '#f0a500', emoji: '⚠️', wW: 55,  wR: 55  },
+    'Mistake':    { color: '#e07c27', emoji: '❌', wW: 25,  wR: 30  },
+    'Blunder':    { color: '#ca3431', emoji: '💀', wW: 0,   wR: 10  },
+};
+
+function classifyMove(prevCp, currCp, isWhite) {
+    const prev = isWhite ?  prevCp : -prevCp;
+    const curr = isWhite ?  currCp : -currCp;
+    const loss = prev - curr;
+    if (loss <= -150) return 'Brilliant';
+    if (loss <= 0)    return 'Best';
+    if (loss <= 20)   return 'Excellent';
+    if (loss <= 50)   return 'Good';
+    if (loss <= 100)  return 'Inaccuracy';
+    if (loss <= 200)  return 'Mistake';
+    return 'Blunder';
+}
+
+// ── Eval fetching ─────────────────────────────────────────
+function getFENAtStateIndex(i) {
+    if (!gameStateHistory[i]) return null;
+    const s = gameStateHistory[i];
+    const save = { board: board.map(r=>[...r]), currentTurn, castlingRights: JSON.parse(JSON.stringify(castlingRights)), enPassantTarget, halfmoveClock };
+    board = s.board.map(r=>[...r]);
+    currentTurn = s.currentTurn;
+    castlingRights = JSON.parse(JSON.stringify(s.castlingRights));
+    enPassantTarget = s.enPassantTarget;
+    halfmoveClock = s.halfmoveClock;
+    const fen = generateFEN();
+    board = save.board; currentTurn = save.currentTurn;
+    castlingRights = save.castlingRights; enPassantTarget = save.enPassantTarget; halfmoveClock = save.halfmoveClock;
+    return fen;
+}
+
+async function fetchEval(fen) {
+    // 1. Lichess cloud (fast, free)
+    try {
+        const r = await fetch(`https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=1`, { headers: { Accept: 'application/json' } });
+        if (r.ok) {
+            const d = await r.json();
+            const pv = d?.pvs?.[0];
+            if (pv) {
+                if (pv.mate != null) return pv.mate > 0 ? 1000 : -1000;
+                return pv.cp / 100;
+            }
+        }
+    } catch (_) {}
+    // 2. Chess-API WebSocket
+    return new Promise(res => {
+        try {
+            const ws = new WebSocket('wss://chess-api.com/v1');
+            const t = setTimeout(() => { ws.close(); res(0); }, 5000);
+            ws.onopen = () => ws.send(JSON.stringify({ fen, depth: 12 }));
+            ws.onmessage = e => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.type === 'log' || d.type === 'info') return;
+                    if (d.eval !== undefined || d.evaluation !== undefined) {
+                        clearTimeout(t); ws.close(); res(parseFloat(d.eval ?? d.evaluation) || 0);
+                    }
+                } catch(_) { clearTimeout(t); ws.close(); res(0); }
+            };
+            ws.onerror = () => { clearTimeout(t); res(0); };
+        } catch(_) { res(0); }
+    });
+}
+
+// ── Main entry point ──────────────────────────────────────
+async function startGameReview() {
+    if (!moveHistory.length) { alert('Play some moves first!'); return; }
+
+    // Show modal with loading state
+    document.getElementById('reviewModal').style.display = 'flex';
+    document.getElementById('reviewLoading').style.display = 'block';
+    document.getElementById('reviewBody').style.display = 'none';
+    document.getElementById('reviewProgressFill').style.width = '0%';
+
+    const total = gameStateHistory.length;
+    rv.evals = [];
+
+    for (let i = 0; i < total; i++) {
+        const pct = Math.round((i / total) * 100);
+        document.getElementById('reviewProgressText').textContent =
+            `Analyzing position ${i + 1} of ${total}…`;
+        document.getElementById('reviewProgressFill').style.width = pct + '%';
+
+        const fen = getFENAtStateIndex(i);
+        const ev = fen ? await fetchEval(fen) : 0;
+        rv.evals.push(ev);
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    // Build per-move data
+    rv.data = [];
+    for (let i = 1; i < rv.evals.length; i++) {
+        const move = moveHistory[i - 1];
+        if (!move) continue;
+        const isWhite = move.turn === 'white';
+        const isBook = i <= 10;
+        const clfKey = isBook ? 'Book' : classifyMove(rv.evals[i-1]*100, rv.evals[i]*100, isWhite);
+        rv.data.push({ moveIndex: i, move, prevEval: rv.evals[i-1], currEval: rv.evals[i], clf: clfKey, isWhite });
+    }
+
+    // Build mini board
+    buildReviewMiniBoard();
+
+    // Render stats
+    renderReviewStats();
+
+    // Show content
+    document.getElementById('reviewProgressFill').style.width = '100%';
+    document.getElementById('reviewLoading').style.display = 'none';
+    document.getElementById('reviewBody').style.display = 'flex';
+
+    // Start at move 0
+    rv.index = 0;
+    renderReviewMove(0);
+}
+
+// ── Mini board ────────────────────────────────────────────
+function buildReviewMiniBoard() {
+    const el = document.getElementById('reviewMiniBoard');
+    el.innerHTML = '';
+    rv.miniSquares = [];
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const sq = document.createElement('div');
+            sq.className = 'review-mini-sq ' + ((r+c)%2===0 ? 'light' : 'dark');
+            el.appendChild(sq);
+            rv.miniSquares.push(sq);
+        }
+    }
+}
+
+function renderMiniBoardState(stateIndex) {
+    if (!gameStateHistory[stateIndex]) return;
+    const state = gameStateHistory[stateIndex];
+    rv.miniSquares.forEach((sq, idx) => {
+        const r = Math.floor(idx/8), c = idx%8;
+        sq.classList.remove('last-from','last-to');
+        sq.innerHTML = '';
+        const piece = state.board[r][c];
+        if (piece && pieceImageMap[piece]) {
+            const img = document.createElement('img');
+            img.src = pieceImageMap[piece];
+            img.style.cssText = 'width:100%;height:100%;object-fit:contain;pointer-events:none;';
+            sq.appendChild(img);
+        }
+    });
+}
+
+function highlightReviewMove(d) {
+    if (!d || !d.move) return;
+    const from = d.move.from || d.move.kingFrom;
+    const to   = d.move.to   || d.move.kingTo;
+    if (!from || !to) return;
+    rv.miniSquares[from.row*8+from.col].classList.add('last-from');
+    rv.miniSquares[to.row*8+to.col].classList.add('last-to');
+}
+
+// ── Render a single review move ───────────────────────────
+function renderReviewMove(idx) {
+    idx = Math.max(0, Math.min(rv.data.length - 1, idx));
+    rv.index = idx;
+    const d = rv.data[idx];
+    if (!d) return;
+
+    // Mini board
+    renderMiniBoardState(d.moveIndex);
+    highlightReviewMove(d);
+
+    // Eval bar: white fill from bottom, range -10..+10
+    const clampedEval = Math.max(-10, Math.min(10, d.currEval));
+    const fillPct = ((clampedEval + 10) / 20) * 100;
+    document.getElementById('reviewEvalFill').style.height = fillPct + '%';
+    const evalStr = Math.abs(d.currEval) > 90 ? (d.currEval > 0 ? 'M+' : 'M-') :
+        (d.currEval >= 0 ? '+' : '') + d.currEval.toFixed(2);
+    document.getElementById('reviewEvalLabel').textContent = evalStr;
+
+    // Move label
+    const moveNum = Math.ceil(d.moveIndex / 2);
+    const sideStr = d.isWhite ? 'White' : 'Black';
+    const info = CLF_INFO[d.clf];
+    document.getElementById('reviewMoveLabel').innerHTML =
+        `<span style="color:${info.color}">${info.emoji} ${d.clf}</span> — Move ${moveNum} (${sideStr})`;
+
+    // Counter
+    document.getElementById('rvCounter').textContent = `${idx+1} / ${rv.data.length}`;
+
+    // Highlight active in list
+    document.querySelectorAll('.rmove').forEach(el => el.classList.remove('active'));
+    const activeEl = document.getElementById(`rmove-${idx}`);
+    if (activeEl) { activeEl.classList.add('active'); activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+
+    // Restore main board too
+    if (gameStateHistory[d.moveIndex]) {
+        restoreGameState(gameStateHistory[d.moveIndex]);
+        drawPieces();
+        clearHighlights();
+    }
+
+    updateReviewNavBtns();
+}
+
+function reviewNav(dir) {
+    if (dir === 'first') renderReviewMove(0);
+    else if (dir === 'prev')  renderReviewMove(rv.index - 1);
+    else if (dir === 'next')  renderReviewMove(rv.index + 1);
+    else if (dir === 'last')  renderReviewMove(rv.data.length - 1);
+}
+
+function updateReviewNavBtns() {
+    document.getElementById('rvFirst').disabled = rv.index === 0;
+    document.getElementById('rvPrev').disabled  = rv.index === 0;
+    document.getElementById('rvNext').disabled  = rv.index >= rv.data.length - 1;
+    document.getElementById('rvLast').disabled  = rv.index >= rv.data.length - 1;
+}
+
+// ── Stats rendering ───────────────────────────────────────
+function calcAccuracy(moves) {
+    if (!moves.length) return 100;
+    return Math.round(moves.reduce((s,d) => s + (CLF_INFO[d.clf]?.wW ?? 75), 0) / moves.length);
+}
+function calcRating(moves) {
+    if (!moves.length) return 1200;
+    const avg = moves.reduce((s,d) => s + (CLF_INFO[d.clf]?.wR ?? 75), 0) / moves.length;
+    return Math.round(800 + avg * 14);
+}
+
+function renderReviewStats() {
+    const white = rv.data.filter(d => d.isWhite);
+    const black = rv.data.filter(d => !d.isWhite);
+
+    const wAcc = calcAccuracy(white), bAcc = calcAccuracy(black);
+    const wRat = calcRating(white),   bRat = calcRating(black);
+
+    const accColor = pct => pct >= 90 ? '#6fba2c' : pct >= 70 ? '#f0a500' : '#ca3431';
+
+    document.getElementById('rvWhiteAccPct').textContent = wAcc + '%';
+    document.getElementById('rvWhiteAccPct').style.color = accColor(wAcc);
+    document.getElementById('rvWhiteAccBar').style.width = wAcc + '%';
+    document.getElementById('rvWhiteAccBar').style.background = `linear-gradient(90deg, ${accColor(wAcc)}, ${accColor(wAcc)}99)`;
+
+    document.getElementById('rvBlackAccPct').textContent = bAcc + '%';
+    document.getElementById('rvBlackAccPct').style.color = accColor(bAcc);
+    document.getElementById('rvBlackAccBar').style.width = bAcc + '%';
+    document.getElementById('rvBlackAccBar').style.background = `linear-gradient(90deg, ${accColor(bAcc)}, ${accColor(bAcc)}99)`;
+
+    document.getElementById('rvWhiteRating').textContent = wRat;
+    document.getElementById('rvBlackRating').textContent = bRat;
+
+    // Classification table
+    const labels = ['Brilliant','Best','Excellent','Good','Book','Inaccuracy','Mistake','Blunder'];
+    const wCounts = {}, bCounts = {};
+    labels.forEach(l => { wCounts[l]=0; bCounts[l]=0; });
+    rv.data.forEach(d => {
+        if (d.isWhite) wCounts[d.clf] = (wCounts[d.clf]||0)+1;
+        else           bCounts[d.clf] = (bCounts[d.clf]||0)+1;
+    });
+
+    document.getElementById('rvClfTable').innerHTML = labels.map(label => {
+        const info = CLF_INFO[label];
+        const w = wCounts[label]||0, b = bCounts[label]||0;
+        if (!w && !b) return '';
+        return `<div class="clf-row">
+            <span class="clf-count">${w||''}</span>
+            <span class="clf-label" style="color:${info.color}">${info.emoji} ${label}</span>
+            <span class="clf-count">${b||''}</span>
+        </div>`;
+    }).join('');
+
+    // Move list
+    document.getElementById('rvMoveList').innerHTML = rv.data.map((d, i) => {
+        const info = CLF_INFO[d.clf];
+        const moveNum = Math.ceil(d.moveIndex/2);
+        const side = d.isWhite ? '♔' : '♚';
+        const ev = Math.abs(d.currEval) > 90 ? (d.currEval>0?'M+':'M-') :
+            (d.currEval>=0?'+':'')+d.currEval.toFixed(2);
+        return `<div class="rmove" id="rmove-${i}" onclick="renderReviewMove(${i})">
+            <span class="rmove-num">${moveNum}${d.isWhite?'.':'...'}</span>
+            <span class="rmove-side">${side}</span>
+            <span class="rmove-clf" style="color:${info.color}">${info.emoji} ${d.clf}</span>
+            <span class="rmove-eval">${ev}</span>
+        </div>`;
+    }).join('');
+}
+
+function closeReviewModal() {
+    document.getElementById('reviewModal').style.display = 'none';
+    goToLivePosition();
+}
+
+// Expose for the Review Game button in victory modal
+function enableGameReview() {
+    const btn = document.getElementById('reviewGameBtn');
+    if (btn) btn.style.opacity = '1';
+}
+
+// ============================================================
+//  END GAME REVIEW SYSTEM v2
+// ============================================================
+
 
 
 
