@@ -3,37 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keen Chess - Authentication</title>
+    <title>Keen Chess — Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="chesslogin.css">
 </head>
 <body>
-    <!-- Connection Status Indicator -->
-    <div id="connectionStatus" class="connection-status connection-checking">Checking connection...</div>
 
-    <div class="bg-shapes">
-        <div class="shape"></div>
-        <div class="shape"></div>
-        <div class="shape"></div>
-        <div class="shape"></div>
-        <div class="shape"></div>
-    </div>
+    <!-- Animated canvas background -->
+    <canvas id="bgCanvas"></canvas>
 
-    <div class="auth-container">
-        <div class="chess-icon">
-            <div class="chess-piece">♔</div>
-            <h1 class="title">Keen Chess</h1>
+    <!-- Chess grid overlay -->
+    <div class="board-overlay"></div>
+
+    <!-- Vignette -->
+    <div class="vignette"></div>
+
+    <!-- Connection status -->
+    <div id="connectionStatus" class="connection-status connection-checking">● Connecting</div>
+
+    <!-- Main layout -->
+    <div class="scene">
+
+        <!-- Logo -->
+        <div class="logo-area">
+            <div class="crown-wrap">
+                <div class="crown-glow"></div>
+                <span class="crown-icon">♔</span>
+            </div>
+            <h1 class="brand-name">Keen <span>Chess</span></h1>
+            <p class="brand-tagline">Master the Board</p>
         </div>
 
-        <div class="form-container">
-            <!-- Login Form -->
+        <!-- Auth Card -->
+        <div class="auth-card">
+
+            <!-- ── LOGIN FORM ── -->
             <div id="loginForm" class="form-slide">
-                <h2 class="subtitle">Welcome Back</h2>
-                <p class="form-description">Sign in to continue your chess journey</p>
+                <div class="form-header">
+                    <h2 class="form-title">Welcome back</h2>
+                    <p class="form-subtitle">Sign in to continue your chess journey</p>
+                </div>
 
                 <div class="error-message" id="loginError"></div>
                 <div class="success-message" id="loginSuccess"></div>
 
-                <button class="btn google-btn" id="googleSignInBtn" type="button">
+                <button class="google-btn" id="googleSignInBtn" type="button">
                     <svg class="google-icon" viewBox="0 0 24 24">
                         <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -43,47 +59,56 @@
                     Continue with Google
                 </button>
 
-                <div class="divider">
-                    <span>or</span>
-                </div>
+                <div class="divider"><span>or</span></div>
 
-                <form id="loginFormElement">
-                    <div class="form-group input-group">
+                <form id="loginFormElement" autocomplete="on">
+                    <div class="form-group">
                         <label for="loginUsername">Email or Username</label>
-                        <span class="input-icon">👤</span>
-                        <input type="text" id="loginUsername" class="input-with-icon" required autocomplete="username" placeholder="Enter your email or username">
+                        <div class="input-wrap">
+                            <span class="input-icon">✉</span>
+                            <input type="text" id="loginUsername" required autocomplete="username" placeholder="you@example.com">
+                            <!-- note: input-icon goes after input for CSS focus trick to work, but since we use .form-group:focus-within we keep it here -->
+                        </div>
                     </div>
 
-                    <div class="form-group input-group">
+                    <div class="form-group">
                         <label for="loginPassword">Password</label>
-                        <span class="input-icon">🔒</span>
-                        <input type="password" id="loginPassword" class="input-with-icon" required autocomplete="current-password" placeholder="Enter your password">
-                        <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔑</span>
+                            <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••">
+                            <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <button type="submit" class="btn-primary" id="loginBtn">
                         <span class="btn-text">Sign In</span>
                     </button>
                 </form>
 
                 <div class="form-footer">
-                    <p>Don't have an account? <button type="button" class="form-link" onclick="showRegister()">Create Account</button></p>
-                    <p><button type="button" class="form-link" onclick="showForgotPassword()">Forgot Password?</button></p>
+                    <p>New here? <button type="button" class="form-link" onclick="showRegister()">Create an account</button></p>
+                    <p><button type="button" class="form-link" onclick="showForgotPassword()">Forgot password?</button></p>
                 </div>
 
-                <button type="button" class="debug-toggle" onclick="toggleDebug()">Show Debug Info</button>
-                <div class="debug-info" id="debugInfo"></div>
+                <div style="text-align:center">
+                    <button type="button" class="debug-toggle" onclick="toggleDebug()">Show Debug</button>
+                    <div class="debug-info" id="debugInfo"></div>
+                </div>
+
+                <div class="chess-rank">♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜</div>
             </div>
 
-            <!-- Register Form -->
+            <!-- ── REGISTER FORM ── -->
             <div id="registerForm" class="form-slide hidden">
-                <h2 class="subtitle">Join the Game</h2>
-                <p class="form-description">Create your account to start playing</p>
+                <div class="form-header">
+                    <h2 class="form-title">Join the board</h2>
+                    <p class="form-subtitle">Create your account and start playing</p>
+                </div>
 
                 <div class="error-message" id="registerError"></div>
                 <div class="success-message" id="registerSuccess"></div>
 
-                <button class="btn google-btn" id="googleSignUpBtn" type="button">
+                <button class="google-btn" id="googleSignUpBtn" type="button">
                     <svg class="google-icon" viewBox="0 0 24 24">
                         <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -93,44 +118,48 @@
                     Sign up with Google
                 </button>
 
-                <div class="divider">
-                    <span>or</span>
-                </div>
+                <div class="divider"><span>or</span></div>
 
-                <form id="registerFormElement">
-                    <div class="form-group input-group">
+                <form id="registerFormElement" autocomplete="on">
+                    <div class="form-group">
                         <label for="registerUsername">Username</label>
-                        <span class="input-icon">👤</span>
-                        <input type="text" id="registerUsername" class="input-with-icon" required minlength="3" maxlength="20" autocomplete="username" placeholder="Choose a username">
+                        <div class="input-wrap">
+                            <span class="input-icon">♟</span>
+                            <input type="text" id="registerUsername" required minlength="3" maxlength="20" autocomplete="username" placeholder="YourChessName">
+                        </div>
                     </div>
 
-                    <div class="form-group input-group">
+                    <div class="form-group">
                         <label for="registerEmail">Email</label>
-                        <span class="input-icon">📧</span>
-                        <input type="email" id="registerEmail" class="input-with-icon" required autocomplete="email" placeholder="Enter your email">
+                        <div class="input-wrap">
+                            <span class="input-icon">✉</span>
+                            <input type="email" id="registerEmail" required autocomplete="email" placeholder="you@example.com">
+                        </div>
                     </div>
 
-                    <div class="form-group input-group">
+                    <div class="form-group">
                         <label for="registerPassword">Password</label>
-                        <span class="input-icon">🔒</span>
-                        <input type="password" id="registerPassword" class="input-with-icon" required minlength="6" autocomplete="new-password" placeholder="Create a password">
-                        <span class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</span>
-                        <div class="password-strength" id="passwordStrength" style="display: none;">
-                            <div class="strength-bar">
-                                <div class="strength-fill" id="strengthFill"></div>
-                            </div>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔑</span>
+                            <input type="password" id="registerPassword" required minlength="6" autocomplete="new-password" placeholder="Min. 6 characters">
+                            <span class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</span>
+                        </div>
+                        <div class="password-strength" id="passwordStrength" style="display:none">
+                            <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
                             <span id="strengthText"></span>
                         </div>
                     </div>
 
-                    <div class="form-group input-group">
+                    <div class="form-group">
                         <label for="confirmPassword">Confirm Password</label>
-                        <span class="input-icon">🔒</span>
-                        <input type="password" id="confirmPassword" class="input-with-icon" required autocomplete="new-password" placeholder="Confirm your password">
-                        <span class="password-toggle" onclick="togglePassword('confirmPassword', this)">👁️</span>
+                        <div class="input-wrap">
+                            <span class="input-icon">🔑</span>
+                            <input type="password" id="confirmPassword" required autocomplete="new-password" placeholder="Repeat password">
+                            <span class="password-toggle" onclick="togglePassword('confirmPassword', this)">👁️</span>
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary" id="registerBtn">
+                    <button type="submit" class="btn-primary" id="registerBtn">
                         <span class="btn-text">Create Account</span>
                     </button>
                 </form>
@@ -138,59 +167,64 @@
                 <div class="form-footer">
                     <p>Already have an account? <button type="button" class="form-link" onclick="showLogin()">Sign In</button></p>
                 </div>
+
+                <div class="chess-rank">♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜</div>
             </div>
 
-            <!-- Forgot Password Form -->
+            <!-- ── FORGOT PASSWORD FORM ── -->
             <div id="forgotPasswordForm" class="form-slide hidden">
-                <h2 class="subtitle">Reset Password</h2>
-                <p class="form-description">Enter your email to receive a password reset link</p>
+                <div class="form-header">
+                    <h2 class="form-title">Reset password</h2>
+                    <p class="form-subtitle">We'll send a reset link to your email</p>
+                </div>
 
                 <div class="error-message" id="forgotPasswordError"></div>
                 <div class="success-message" id="forgotPasswordSuccess"></div>
 
                 <form id="forgotPasswordFormElement">
-                    <div class="form-group input-group">
-                        <label for="forgotPasswordEmail">Email</label>
-                        <span class="input-icon">📧</span>
-                        <input type="email" id="forgotPasswordEmail" class="input-with-icon" required autocomplete="email" placeholder="Enter your email address">
+                    <div class="form-group">
+                        <label for="forgotPasswordEmail">Email Address</label>
+                        <div class="input-wrap">
+                            <span class="input-icon">✉</span>
+                            <input type="email" id="forgotPasswordEmail" required autocomplete="email" placeholder="you@example.com">
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary" id="forgotPasswordBtn">
+                    <button type="submit" class="btn-primary" id="forgotPasswordBtn">
                         <span class="btn-text">Send Reset Link</span>
                     </button>
                 </form>
 
                 <div class="form-footer">
-                    <p>Remember your password? <button type="button" class="form-link" onclick="showLogin()">Sign In</button></p>
+                    <p><button type="button" class="form-link" onclick="showLogin()">← Back to Sign In</button></p>
                 </div>
             </div>
 
-            <!-- Offline Mode Display -->
+            <!-- ── OFFLINE MODE ── -->
             <div id="offlineMode" class="form-slide hidden">
                 <div class="connection-error">
-                    <h3>🚫 Connection Error</h3>
-                    <p>Unable to connect to the authentication server.</p>
-                    
-                    <h4>Possible solutions:</h4>
+                    <h3>Connection Error</h3>
+                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:8px">Unable to reach the authentication server.</p>
+                    <h4>Try these steps:</h4>
                     <ul>
                         <li>Check your internet connection</li>
-                        <li>Verify your firewall settings</li>
-                        <li>Try refreshing the page</li>
-                        <li>Contact support if the problem persists</li>
+                        <li>Verify firewall settings</li>
+                        <li>Refresh the page</li>
+                        <li>Contact support if this persists</li>
                     </ul>
-                    
                     <button type="button" class="retry-btn" onclick="retryConnection()">Retry Connection</button>
-                    <button type="button" class="btn btn-secondary" onclick="continueOffline()" style="margin-top: 10px;">Continue Offline (Demo Mode)</button>
+                    <button type="button" class="btn-secondary" onclick="continueOffline()">Demo Mode</button>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Fixed Firebase SDK Loading -->
+        </div><!-- /auth-card -->
+    </div><!-- /scene -->
+
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    
-    <!-- Application Scripts -->
+
+    <!-- App Scripts -->
     <script src="firebase.js"></script>
     <script src="chesslogin.js"></script>
 </body>
