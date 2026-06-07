@@ -3,94 +3,182 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>KeenChess — Static Board</title>
+  <title>KeenChess</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="maininterface.css">
 </head>
 <body>
-  <!-- Navigation (left-top) -->
+
+  <!-- Ambient background orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="noise-overlay"></div>
+
+  <!-- Navigation -->
   <nav class="left-nav" aria-label="Navigation">
-    <button id="navHomeBtn" class="nav-item active" aria-pressed="true">Home</button>
-    <button id="navPlayBtn" class="nav-item">🫳🕸♟️Play</button>
-    <button id="navPuzzleBtn" class="nav-item">🧩Puzzle</button>
-    <!-- Puzzle submenu (hidden until Puzzle is clicked) -->
-    <div id="puzzleMenu" class="puzzle-menu hidden" aria-hidden="true">
-      <button id="navPuzzle8Btn" class="puzzle-item">8 Queens Puzzle</button>
-      <button id="navPuzzleKnightBtn" class="puzzle-item">Knight Tour</button>
+    <div class="nav-brand">
+      <span class="brand-icon">♚</span>
+      <span class="brand-name">KeenChess</span>
     </div>
-    <button id="navNewsBtn" class="nav-item">📰News</button>
-    <button id="navLearnBtn" class="nav-item">👨‍🏫Learn</button>
-    <button id="navWatchBtn" class="nav-item">👀Watch</button>
-    <button id="navLogoutBtn" class="nav-item">😫Logout</button>
+    <div class="nav-divider"></div>
+    <div class="nav-links">
+      <button id="navHomeBtn" class="nav-item active" aria-pressed="true">
+        <span class="nav-icon">⌂</span><span class="nav-label">Home</span>
+      </button>
+      <button id="navPlayBtn" class="nav-item">
+        <span class="nav-icon">♟</span><span class="nav-label">Play</span>
+      </button>
+      <button id="navPuzzleBtn" class="nav-item has-submenu">
+        <span class="nav-icon">◈</span><span class="nav-label">Puzzles</span>
+        <span class="chevron">›</span>
+      </button>
+      <div id="puzzleMenu" class="puzzle-menu hidden" aria-hidden="true">
+        <button id="navPuzzle8Btn" class="puzzle-item">
+          <span class="puzzle-dot">◆</span> 8 Queens
+        </button>
+        <button id="navPuzzleKnightBtn" class="puzzle-item">
+          <span class="puzzle-dot">◆</span> Knight Tour
+        </button>
+        <button id="navPuzzleDailyBtn" class="puzzle-item">
+          <span class="puzzle-dot">◆</span> Daily Puzzle
+        </button>
+      </div>
+      <button id="navNewsBtn" class="nav-item">
+        <span class="nav-icon">◉</span><span class="nav-label">News</span>
+      </button>
+      <button id="navLearnBtn" class="nav-item">
+        <span class="nav-icon">◎</span><span class="nav-label">Learn</span>
+      </button>
+      <button id="navWatchBtn" class="nav-item">
+        <span class="nav-icon">◐</span><span class="nav-label">Watch</span>
+      </button>
+    </div>
+    <div class="nav-bottom">
+      <div class="nav-divider"></div>
+      <button id="navLogoutBtn" class="nav-item logout-btn">
+        <span class="nav-icon">⎋</span><span class="nav-label">Logout</span>
+      </button>
+    </div>
   </nav>
 
   <main class="static-container">
     <header class="static-header">
-      <h1>KeenChess </h1>
-      <p class="subtitle"></p>
+      <div class="header-eyebrow">Welcome back, Grandmaster</div>
+      <h1 class="header-title">Your Board<span class="title-accent">.</span></h1>
+      <p class="subtitle">The game awaits — make your move.</p>
     </header>
 
-    <section class="board-wrapper" aria-label="Static chess board">
-      <div id="staticBoard" class="board" aria-hidden="false">
-        <!-- squares filled by CSS/JS -> 8x8 grid -->
-        <!-- JS will render the initial pieces but there are no handlers for moving pieces -->
+    <section class="board-wrapper" aria-label="Chess board">
+      <div class="board-frame">
+        <div class="board-rank-labels">
+          <span>8</span><span>7</span><span>6</span><span>5</span>
+          <span>4</span><span>3</span><span>2</span><span>1</span>
+        </div>
+        <div id="staticBoard" class="board" aria-hidden="false"></div>
+      </div>
+      <div class="board-file-labels">
+        <span>a</span><span>b</span><span>c</span><span>d</span>
+        <span>e</span><span>f</span><span>g</span><span>h</span>
       </div>
     </section>
 
     <footer class="static-footer">
-      <small> Hello my  fellow GM, I meant Good morning though. </small>
+      <span class="footer-quote">♔ &nbsp;"Every chess master was once a beginner."</span>
     </footer>
   </main>
-  
-  <!-- nav moved to top-left for left-top placement -->
 
   <script src="maininterface.js"></script>
-  <!-- 8-Queens Modal (static page) -->
+
+  <!-- 8-Queens Modal -->
   <div id="eightModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
     <div class="modal-content modal-center">
       <div class="modal-header">
-        <h2>8 Queens Puzzle</h2>
-        <button id="eightCloseBtn" class="modal-close">✕</button>
-      </div>
-      <p style="text-align:center;margin-top:6px;color:var(--text);">Place 8 queens so none attack each other. Click squares to toggle a queen.</p>
-      <div id="eightControls" style="display:flex;gap:8px;justify-content:space-between;margin:12px 0;align-items:center;width:100%;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <button id="eightPrevBtn" class="btn">◀</button>
-            <button id="eightNextBtn" class="btn">▶</button>
-          </div>
-          <div style="font-size:14px;color:#222;">Solution: <span id="eightSolutionIdx">-</span> / <span id="eightSolutionsTotal">-</span></div>
+        <div>
+          <div class="modal-eyebrow">Puzzle Mode</div>
+          <h2>8 Queens</h2>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button id="eightSolveBtn" class="btn">Solve</button>
-          <button id="eightClearBtn" class="btn">Clear</button>
-          <button id="eightCloseFooterBtn" class="btn">Close</button>
+        <button id="eightCloseBtn" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <p class="modal-desc">Place 8 queens so none attack each other. Click squares to toggle.</p>
+      <div id="eightControls" class="modal-controls">
+        <div class="controls-left">
+          <button id="eightPrevBtn" class="btn btn-ghost">◀</button>
+          <div class="solution-counter">
+            <span id="eightSolutionIdx">—</span>
+            <span class="counter-sep">/</span>
+            <span id="eightSolutionsTotal">—</span>
+          </div>
+          <button id="eightNextBtn" class="btn btn-ghost">▶</button>
+        </div>
+        <div class="controls-right">
+          <button id="eightSolveBtn" class="btn btn-primary">Solve</button>
+          <button id="eightSol1Btn" class="btn btn-gold" title="Jump to Solution #1">Sol #1</button>
+          <button id="eightDailyBtn" class="btn btn-lichess" title="Load Lichess Daily Puzzle">
+            <img src="https://lichess1.org/assets/logo/lichess-favicon-32.png" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Daily
+          </button>
+          <button id="eightClearBtn" class="btn btn-ghost">Clear</button>
+          <button id="eightCloseFooterBtn" class="btn btn-ghost">Close</button>
         </div>
       </div>
       <div id="eightStaticBoard" class="eq-grid" aria-hidden="false"></div>
-      <div style="text-align:center;margin-top:8px;color:var(--text);">Queens placed: <span id="eightCount">0</span>/8</div>
+      <div class="modal-status">Queens placed: <span id="eightCount" class="status-num">0</span> / <span class="status-num">8</span></div>
     </div>
   </div>
 
-  <!-- Knight Tour Modal (static page) -->
+  <!-- Knight Tour Modal -->
   <div id="knightModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
     <div class="modal-content modal-center">
       <div class="modal-header">
-        <h2>Knight Tour Puzzle</h2>
-        <button id="knightCloseBtn" class="modal-close">✕</button>
-      </div>
-      <p style="text-align:center;margin-top:6px;color:var(--text);">Move a knight to visit all 64 squares exactly once.</p>
-      <div id="knightControls" style="display:flex;gap:8px;justify-content:space-between;margin:12px 0;align-items:center;width:100%;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-size:14px;color:#888;">Moves: <span id="knightMoveCount">0</span>/64</div>
+        <div>
+          <div class="modal-eyebrow">Puzzle Mode</div>
+          <h2>Knight Tour</h2>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button id="knightSolveBtn" class="btn">Solve</button>
-          <button id="knightClearBtn" class="btn">Clear</button>
-          <button id="knightCloseFooterBtn" class="btn">Close</button>
+        <button id="knightCloseBtn" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <p class="modal-desc">Move a knight to visit all 64 squares exactly once.</p>
+      <div id="knightControls" class="modal-controls">
+        <div class="controls-left">
+          <div class="solution-counter">
+            Moves: <span id="knightMoveCount" class="status-num">0</span> / <span class="status-num">64</span>
+          </div>
+        </div>
+        <div class="controls-right">
+          <button id="knightSolveBtn" class="btn btn-primary">Solve</button>
+          <button id="knightClearBtn" class="btn btn-ghost">Clear</button>
+          <button id="knightCloseFooterBtn" class="btn btn-ghost">Close</button>
         </div>
       </div>
       <div id="knightBoard" class="kt-grid" aria-hidden="false"></div>
     </div>
   </div>
+
+  <!-- Daily Puzzle Modal -->
+  <div id="dailyModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-center">
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow">Lichess · Daily Puzzle</div>
+          <h2 id="dailyPuzzleTitle">Loading…</h2>
+        </div>
+        <button id="dailyCloseBtn" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <p class="modal-desc" id="dailyPuzzleDesc">Fetching today's puzzle from Lichess…</p>
+      <div id="dailyBoard" class="board daily-board" style="margin-top:14px;"></div>
+      <div class="modal-status" style="margin-top:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center;">
+        <span>Rating: <span id="dailyRating" class="status-num">—</span></span>
+        <span>Themes: <span id="dailyThemes" class="status-num">—</span></span>
+        <a id="dailyLink" href="#" target="_blank" class="btn btn-lichess" style="text-decoration:none;padding:6px 12px;font-size:0.8rem;">
+          <img src="https://lichess1.org/assets/logo/lichess-favicon-32.png" width="13" height="13" alt="" style="vertical-align:middle;margin-right:4px;">Open on Lichess
+        </a>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

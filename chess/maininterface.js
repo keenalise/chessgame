@@ -1,550 +1,428 @@
-// Simple static board renderer. No movement, no handlers.
-// Renders pieces from a FEN (placement) string or default starting position.
-(function(){
+// KeenChess — Static Board + Puzzle Modals
+// Lichess SVG pieces + 8-Queens Sol#1 + Daily Puzzle fetch
+(function () {
   const boardEl = document.getElementById('staticBoard');
-  if(!boardEl) return;
+  if (!boardEl) return;
 
-  // Create 8x8 squares
-  function createSquares(){
-    boardEl.innerHTML = '';
-    for(let r=0;r<8;r++){
-      for(let c=0;c<8;c++){
-        const sq=document.createElement('div');
+  /* ================================================================
+     LICHESS SVG PIECE SYSTEM
+     Base URL: https://lichess1.org/assets/piece/cburnett/
+     Files: wP.svg, bP.svg, wR.svg, bR.svg, etc.
+     ================================================================ */
+  const PIECE_BASE = 'https://lichess1.org/assets/piece/cburnett/';
+
+  // Map FEN letter → Lichess filename prefix
+  const PIECE_FILE = {
+    P: 'wP', R: 'wR', N: 'wN', B: 'wB', Q: 'wQ', K: 'wK',
+    p: 'bP', r: 'bR', n: 'bN', b: 'bB', q: 'bQ', k: 'bK',
+  };
+
+  /** Create an <img> piece using Lichess SVG assets */
+  function makePieceImg(fenChar, size = '82%') {
+    const file = PIECE_FILE[fenChar];
+    if (!file) return null;
+    const img = document.createElement('img');
+    img.src = `${PIECE_BASE}${file}.svg`;
+    img.alt = fenChar;
+    img.className = 'piece-svg';
+    img.style.cssText = `width:${size};height:${size};display:block;pointer-events:none;
+      filter:drop-shadow(0 2px 5px rgba(0,0,0,0.55));transition:transform 0.1s ease;`;
+    img.draggable = false;
+    return img;
+  }
+
+  /* ── Build 8×8 squares ── */
+  function createSquares(container) {
+    container.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const sq = document.createElement('div');
         const isLight = (r + c) % 2 === 0;
-        sq.className = 'square ' + (isLight ? 'light':'dark');
-        sq.dataset.row = r; sq.dataset.col=c;
-        // add coordinates for bottom-left file and top-left rank visually only on edges
-        if(r===7){
-          const file = document.createElement('div');
-          file.className='coord-file';
-          file.textContent = String.fromCharCode(97 + c);
-          sq.appendChild(file);
-        }
-        if(c===0){
-          const rank = document.createElement('div');
-          rank.className='coord-rank';
-          rank.textContent = 8 - r;
-          sq.appendChild(rank);
-        }
-        boardEl.appendChild(sq);
+        sq.className = 'square ' + (isLight ? 'light' : 'dark');
+        sq.dataset.row = r;
+        sq.dataset.col = c;
+        container.appendChild(sq);
       }
     }
   }
 
-  // Map piece letters to unicode pieces used in the project
-  const glyphs = {
-    'P': {cls:'white',sym:'♙'}, 'R':{cls:'white',sym:'♖'}, 'N':{cls:'white',sym:'♘'}, 'B':{cls:'white',sym:'♗'}, 'Q':{cls:'white',sym:'♕'}, 'K':{cls:'white',sym:'♔'},
-    'p': {cls:'black',sym:'♟'}, 'r':{cls:'black',sym:'♜'}, 'n':{cls:'black',sym:'♞'}, 'b':{cls:'black',sym:'♝'}, 'q':{cls:'black',sym:'♛'}, 'k':{cls:'black',sym:'♚'}
-  };
-
-  function clearPieces(){
-    const squares = boardEl.querySelectorAll('.square');
-    squares.forEach(sq=>sq.textContent='');
+  function clearPieces(container) {
+    container.querySelectorAll('.piece-svg').forEach(el => el.remove());
   }
 
-  // place pieces using placement-only FEN (first field); accepts full FEN too
-  function renderFromFEN(fen){
-    if(!fen) fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+  function renderFromFEN(fen, container) {
+    if (!container) container = boardEl;
+    if (!fen) fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
     const placement = fen.split(' ')[0];
     const rows = placement.split('/');
-    if(rows.length!==8) return;
-    clearPieces();
-    for(let r=0;r<8;r++){
+    if (rows.length !== 8) return;
+    clearPieces(container);
+    for (let r = 0; r < 8; r++) {
       const row = rows[r];
-      let c=0;
-      for(let i=0;i<row.length;i++){
+      let c = 0;
+      for (let i = 0; i < row.length; i++) {
         const ch = row[i];
-        if(/[1-8]/.test(ch)){
-          c += parseInt(ch,10);
-          continue;
-        }
-        if(c>=8) continue;
-          const squareIndex = r*8 + c;
-          const sq = boardEl.children[squareIndex];
-        const info = glyphs[ch];
-        if(info){
-          const el = document.createElement('div');
-          el.className = 'piece ' + info.cls;
-          el.textContent = info.sym;
-          // keep coordinates intact, append piece before coords
-          // remove any existing piece child (should be none)
-          sq.appendChild(el);
-        }
+        if (/[1-8]/.test(ch)) { c += parseInt(ch, 10); continue; }
+        if (c >= 8) continue;
+        const sq = container.children[r * 8 + c];
+        const img = makePieceImg(ch);
+        if (img && sq) sq.appendChild(img);
         c++;
       }
     }
   }
 
-  // initialize
-  createSquares();
-  // default starting position
-  renderFromFEN();
+  /* ── Init main board ── */
+  createSquares(boardEl);
+  renderFromFEN('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', boardEl);
+  window.renderStaticPosition = (fen) => renderFromFEN(fen, boardEl);
 
-  // Safety check: ensure there are exactly 64 grid children; remove extras if any
-  (function ensure64(){
-    const children = boardEl.children;
-    if (children.length === 64) return;
-    console.warn('Static board had', children.length, 'children; cleaning up to 64.');
-    // Remove any extra nodes beyond 64
-    for (let i = children.length - 1; i >= 64; i--) {
-      boardEl.removeChild(children[i]);
-    }
-  })();
-
-  // expose helper (non-interactive) to change the displayed position if needed
-  window.renderStaticPosition = renderFromFEN;
-
-  // Navigation handlers for left nav
-  function setActive(buttonId){
-    const items = document.querySelectorAll('.left-nav .nav-item');
-    items.forEach(it => {
+  /* ================================================================
+     NAVIGATION
+     ================================================================ */
+  function setActive(buttonId) {
+    document.querySelectorAll('.left-nav .nav-item').forEach(it => {
       it.classList.toggle('active', it.id === buttonId);
       it.setAttribute('aria-pressed', it.id === buttonId ? 'true' : 'false');
     });
   }
 
-  function wireNav(){
-    const home = document.getElementById('navHomeBtn');
-    const play = document.getElementById('navPlayBtn');
-    const puzzle = document.getElementById('navPuzzleBtn');
-    const puzzleMenu = document.getElementById('puzzleMenu');
-    const puzzle8 = document.getElementById('navPuzzle8Btn');
+  function wireNav() {
+    const home         = document.getElementById('navHomeBtn');
+    const play         = document.getElementById('navPlayBtn');
+    const puzzle       = document.getElementById('navPuzzleBtn');
+    const puzzleMenu   = document.getElementById('puzzleMenu');
+    const puzzle8      = document.getElementById('navPuzzle8Btn');
     const puzzleKnight = document.getElementById('navPuzzleKnightBtn');
-    const news = document.getElementById('navNewsBtn');
-    const learn = document.getElementById('navLearnBtn');
-    const watch = document.getElementById('navWatchBtn');
-    const logout = document.getElementById('navLogoutBtn');
+    const puzzleDaily  = document.getElementById('navPuzzleDailyBtn');
+    const news         = document.getElementById('navNewsBtn');
+    const learn        = document.getElementById('navLearnBtn');
+    const watch        = document.getElementById('navWatchBtn');
+    const logout       = document.getElementById('navLogoutBtn');
 
-    if(home){
-      home.addEventListener('click', ()=>{
-        setActive('navHomeBtn');
-        // show static board (default starting pos)
-        renderFromFEN();
-      });
-    }
-    if(play){
-      play.addEventListener('click', ()=>{
-        setActive('navPlayBtn');
-        // navigate to the interactive game page (same folder)
-        window.location.href = 'chessgame.html';
-      });
-    }
-    if(puzzle){
-      puzzle.addEventListener('click', ()=>{
-        // Toggle puzzle submenu visibility
-        if (puzzleMenu) {
-          const isHidden = puzzleMenu.classList.contains('hidden');
-          // hide any other menus (if required) then toggle
-          if (isHidden) {
-            puzzleMenu.classList.remove('hidden');
-            puzzleMenu.setAttribute('aria-hidden','false');
-          } else {
-            puzzleMenu.classList.add('hidden');
-            puzzleMenu.setAttribute('aria-hidden','true');
-          }
-        } else {
-          setActive('navPuzzleBtn');
-          alert('Puzzles section not implemented yet.');
-        }
-      });
-      // handle puzzle menu actions
-      if (puzzle8) {
-          puzzle8.addEventListener('click', ()=>{
-            setActive('navPuzzleBtn');
-            // open 8-queens modal within this static interface
-            try { openEightModal(); } catch(e){
-              console.warn('openEightModal not available', e);
-              // fallback: redirect to interactive page
-              try { localStorage.setItem('open_puzzle','eight'); } catch(_){}
-              window.location.href = 'chessgame.html';
-            }
-          });
+    if (home) home.addEventListener('click', () => {
+      setActive('navHomeBtn');
+      renderFromFEN('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', boardEl);
+    });
+
+    if (play) play.addEventListener('click', () => {
+      setActive('navPlayBtn');
+      window.location.href = 'chessgame.html';
+    });
+
+    if (puzzle) puzzle.addEventListener('click', () => {
+      if (puzzleMenu) {
+        const hidden = puzzleMenu.classList.contains('hidden');
+        puzzleMenu.classList.toggle('hidden', !hidden);
+        puzzleMenu.setAttribute('aria-hidden', hidden ? 'false' : 'true');
+        const chevron = puzzle.querySelector('.chevron');
+        if (chevron) chevron.style.transform = hidden ? 'rotate(90deg)' : '';
       }
-      if (puzzleKnight) {
-          puzzleKnight.addEventListener('click', ()=>{
-            setActive('navPuzzleBtn');
-            // open knight tour modal within this static interface
-            try { openKnightModal(); } catch(e){
-              console.warn('openKnightModal not available', e);
-              // fallback: redirect to interactive page
-              try { localStorage.setItem('open_puzzle','knight'); } catch(_){}
-              window.location.href = 'chessgame.html';
-            }
-          });
+    });
+
+    if (puzzle8) puzzle8.addEventListener('click', () => { setActive('navPuzzleBtn'); openEightModal(); });
+    if (puzzleKnight) puzzleKnight.addEventListener('click', () => { setActive('navPuzzleBtn'); openKnightModal(); });
+    if (puzzleDaily)  puzzleDaily.addEventListener('click',  () => { setActive('navPuzzleBtn'); openDailyModal(); });
+
+    if (news)  news.addEventListener('click',  () => { setActive('navNewsBtn');  window.open('https://en.chessbase.com/', '_blank'); });
+    if (learn) learn.addEventListener('click', () => { setActive('navLearnBtn'); window.open('https://learningchess.net/us/courses', '_blank'); });
+    if (watch) watch.addEventListener('click', () => { setActive('navWatchBtn'); window.open('https://www.youtube.com/@GothamChess/videos', '_blank'); });
+
+    if (logout) logout.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to log out?')) return;
+      setActive('navLogoutBtn');
+      try {
+        ['chess_user_id','chess_user_email','chess_user_name','chess_user_photo'].forEach(k => {
+          sessionStorage.removeItem(k); localStorage.removeItem(k);
+        });
+      } catch (e) { console.warn('Storage clear failed:', e); }
+      try {
+        if (window.FirebaseAuth?.signOut) await window.FirebaseAuth.signOut();
+        else if (window.firebase?.auth?.()?.signOut) await window.firebase.auth().signOut();
+      } catch (err) { console.warn('Firebase sign out failed:', err); }
+      try { window.location.href = 'chesslogin.html'; }
+      catch (err) { window.location.replace('chesslogin.html'); }
+    });
+
+    // Close puzzle menu on outside click
+    document.addEventListener('click', (e) => {
+      if (!puzzle?.contains(e.target) && !puzzleMenu?.contains(e.target)) {
+        puzzleMenu?.classList.add('hidden');
+        puzzleMenu?.setAttribute('aria-hidden', 'true');
+        const chevron = puzzle?.querySelector('.chevron');
+        if (chevron) chevron.style.transform = '';
       }
-    }
-    if(news){
-      news.addEventListener('click', ()=>{
-        setActive('navNewsBtn');
-        alert('News section not implemented yet.');
-      });
-    }
-    if(learn){
-      learn.addEventListener('click', ()=>{
-        setActive('navLearnBtn');
-        alert('Learn section not implemented yet.');
-      });
-    }
-    if(watch){
-      watch.addEventListener('click', ()=>{
-        setActive('navWatchBtn');
-        alert('Watch section not implemented yet.');
-      });
-    }
-    if(logout){
-      logout.addEventListener('click', async ()=>{
-        // Ask for confirmation
-        const ok = confirm('Are you sure you want to log out?');
-        if (!ok) return;
-        setActive('navLogoutBtn');
-
-        // Clear stored chess user data
-        try {
-          sessionStorage.removeItem('chess_user_id');
-          sessionStorage.removeItem('chess_user_email');
-          sessionStorage.removeItem('chess_user_name');
-          sessionStorage.removeItem('chess_user_photo');
-
-          localStorage.removeItem('chess_user_id');
-          localStorage.removeItem('chess_user_email');
-          localStorage.removeItem('chess_user_name');
-          localStorage.removeItem('chess_user_photo');
-        } catch (e) {
-          console.warn('Failed to clear storage during logout', e);
-        }
-
-        // Attempt Firebase sign-out if available
-        try {
-          if (window.FirebaseAuth && typeof window.FirebaseAuth.signOut === 'function') {
-            await window.FirebaseAuth.signOut();
-          } else if (window.firebase && window.firebase.auth && typeof window.firebase.auth === 'function') {
-            // older firebase global
-            await window.firebase.auth().signOut();
-          }
-        } catch (err) {
-          console.warn('Firebase sign out failed (continuing):', err);
-        }
-
-        // Redirect back to login page
-        try {
-          window.location.href = 'chesslogin.html';
-        } catch (err) {
-          console.error('Redirect to login failed:', err);
-          try { window.location.replace('chesslogin.html'); } catch(e) { /* ignore */ }
-        }
-      });
-    }
+    });
   }
 
-  // wire nav on next tick (DOM now has nav)
   setTimeout(wireNav, 10);
 
-  // ---------------- 8-Queens modal logic for static page ----------------
+  /* ================================================================
+     8-QUEENS MODAL
+     ================================================================ */
   let eightInitialized = false;
-  let eightState = Array(8).fill(-1); // row -> col or -1
+  let eightState = Array(8).fill(-1);
+  let eightSolutions = [];
+  let eightSolutionIndex = -1;
 
-  function openEightModal(){
+  function openEightModal() {
     if (!eightInitialized) initEightModal();
     const modal = document.getElementById('eightModal');
     if (!modal) return;
     modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden','false');
+    modal.setAttribute('aria-hidden', 'false');
     renderEightBoard();
   }
-
-  function closeEightModal(){
+  function closeEightModal() {
     const modal = document.getElementById('eightModal');
     if (!modal) return;
     modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden','true');
+    modal.setAttribute('aria-hidden', 'true');
   }
 
-  function initEightModal(){
+  function initEightModal() {
     eightInitialized = true;
-    // build 8x8 squares
     const container = document.getElementById('eightStaticBoard');
     if (!container) return;
     container.innerHTML = '';
-    for (let r=0;r<8;r++){
-      for (let c=0;c<8;c++){
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
         const sq = document.createElement('div');
-        const isLight = (r + c) % 2 === 0;
-        sq.className = 'eq-square ' + (isLight ? 'light' : 'dark');
+        sq.className = 'eq-square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
         sq.dataset.row = r; sq.dataset.col = c;
-        sq.addEventListener('click', ()=>{
-          toggleQueen(r,c);
-          renderEightBoard();
-        });
+        sq.addEventListener('click', () => { toggleQueen(r, c); renderEightBoard(); });
         container.appendChild(sq);
       }
     }
 
-    // wire controls
-    const solveBtn = document.getElementById('eightSolveBtn');
-    const clearBtn = document.getElementById('eightClearBtn');
-    const closeBtn = document.getElementById('eightCloseBtn');
-    const closeFooter = document.getElementById('eightCloseFooterBtn');
-    const prevBtn = document.getElementById('eightPrevBtn');
-    const nextBtn = document.getElementById('eightNextBtn');
-    if (solveBtn) solveBtn.addEventListener('click', ()=>{
+    const solveBtn      = document.getElementById('eightSolveBtn');
+    const sol1Btn       = document.getElementById('eightSol1Btn');
+    const dailyBtn      = document.getElementById('eightDailyBtn');
+    const clearBtn      = document.getElementById('eightClearBtn');
+    const closeBtn      = document.getElementById('eightCloseBtn');
+    const closeFooter   = document.getElementById('eightCloseFooterBtn');
+    const prevBtn       = document.getElementById('eightPrevBtn');
+    const nextBtn       = document.getElementById('eightNextBtn');
+    const backdrop      = document.querySelector('#eightModal .modal-backdrop');
+
+    if (solveBtn) solveBtn.addEventListener('click', () => {
       const sols = solveAllEight();
-      if (sols && sols.length>0) {
-        eightSolutions = sols;
-        eightSolutionIndex = 0;
-        eightState = eightSolutions[0].slice();
-        renderEightBoard();
-        updateSolutionCounter();
+      if (sols?.length > 0) {
+        eightSolutions = sols; eightSolutionIndex = 0;
+        eightState = sols[0].slice();
+        renderEightBoard(); updateSolutionCounter();
       } else alert('No solution found');
     });
-    if (clearBtn) clearBtn.addEventListener('click', ()=>{ eightState = Array(8).fill(-1); eightSolutions=[]; eightSolutionIndex=-1; renderEightBoard(); updateSolutionCounter(); });
-    if (closeBtn) closeBtn.addEventListener('click', closeEightModal);
+
+    // ── Sol #1 button: jump straight to solution index 0 ──
+    if (sol1Btn) sol1Btn.addEventListener('click', () => {
+      if (!eightSolutions.length) eightSolutions = solveAllEight();
+      if (eightSolutions.length) {
+        eightSolutionIndex = 0;
+        eightState = eightSolutions[0].slice();
+        renderEightBoard(); updateSolutionCounter();
+      }
+    });
+
+    // ── Daily button inside 8Q: fetch Lichess daily puzzle FEN & show on main board ──
+    if (dailyBtn) dailyBtn.addEventListener('click', async () => {
+      dailyBtn.disabled = true;
+      dailyBtn.textContent = 'Loading…';
+      try {
+        const data = await fetchLichessDaily();
+        if (data?.puzzle?.fen || data?.game?.fen) {
+          const fen = data.puzzle?.fen || data.game?.fen;
+          closeEightModal();
+          renderFromFEN(fen, boardEl);
+          // Show a small toast
+          showToast(`Daily puzzle loaded on main board! Rating: ${data.puzzle?.rating ?? '?'}`);
+        }
+      } catch (e) {
+        console.warn('Daily puzzle fetch failed:', e);
+        showToast('Could not fetch daily puzzle — check your connection.', true);
+      }
+      dailyBtn.disabled = false;
+      dailyBtn.innerHTML = '<img src="https://lichess1.org/assets/logo/lichess-favicon-32.png" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Daily';
+    });
+
+    if (clearBtn)    clearBtn.addEventListener('click', () => { eightState = Array(8).fill(-1); eightSolutions = []; eightSolutionIndex = -1; renderEightBoard(); updateSolutionCounter(); });
+    if (closeBtn)    closeBtn.addEventListener('click', closeEightModal);
     if (closeFooter) closeFooter.addEventListener('click', closeEightModal);
-    if (prevBtn) prevBtn.addEventListener('click', ()=>{ if (eightSolutions.length>0){ eightSolutionIndex = (eightSolutionIndex -1 + eightSolutions.length)%eightSolutions.length; eightState = eightSolutions[eightSolutionIndex].slice(); renderEightBoard(); updateSolutionCounter(); } });
-    if (nextBtn) nextBtn.addEventListener('click', ()=>{ if (eightSolutions.length>0){ eightSolutionIndex = (eightSolutionIndex +1)%eightSolutions.length; eightState = eightSolutions[eightSolutionIndex].slice(); renderEightBoard(); updateSolutionCounter(); } });
+    if (backdrop)    backdrop.addEventListener('click', closeEightModal);
+    if (prevBtn) prevBtn.addEventListener('click', () => {
+      if (!eightSolutions.length) return;
+      eightSolutionIndex = (eightSolutionIndex - 1 + eightSolutions.length) % eightSolutions.length;
+      eightState = eightSolutions[eightSolutionIndex].slice(); renderEightBoard(); updateSolutionCounter();
+    });
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+      if (!eightSolutions.length) return;
+      eightSolutionIndex = (eightSolutionIndex + 1) % eightSolutions.length;
+      eightState = eightSolutions[eightSolutionIndex].slice(); renderEightBoard(); updateSolutionCounter();
+    });
   }
 
-  function renderEightBoard(){
+  function renderEightBoard() {
     const container = document.getElementById('eightStaticBoard');
     if (!container) return;
-    const squares = container.children;
-    // Compute placed queens list
     const placed = [];
-    for (let r=0;r<8;r++){
-      const c = eightState[r];
-      if (c>=0) placed.push({r,c});
-    }
-
-    // mark conflicts: for each placed queen check against others
-    const conflicts = new Set(); // store keys like 'r,c' for conflicting queens
-    for (let i=0;i<placed.length;i++){
-      for (let j=i+1;j<placed.length;j++){
+    for (let r = 0; r < 8; r++) if (eightState[r] >= 0) placed.push({ r, c: eightState[r] });
+    const conflicts = new Set();
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
         const a = placed[i], b = placed[j];
-        if (a.c === b.c || Math.abs(a.r - b.r) === Math.abs(a.c - b.c)){
-          conflicts.add(a.r + ',' + a.c);
-          conflicts.add(b.r + ',' + b.c);
+        if (a.c === b.c || Math.abs(a.r - b.r) === Math.abs(a.c - b.c)) {
+          conflicts.add(a.r + ',' + a.c); conflicts.add(b.r + ',' + b.c);
         }
       }
     }
-
-    // Render grid and apply classes
-    for (let r=0;r<8;r++){
-      for (let c=0;c<8;c++){
-        const i = r*8 + c;
-        const sq = squares[i];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const sq = container.children[r * 8 + c];
         sq.innerHTML = '';
-        if (eightState[r] === c){
+        if (eightState[r] === c) {
           const q = document.createElement('div');
           const key = r + ',' + c;
-          const isConflict = conflicts.has(key);
-          q.className = 'queen ' + (isConflict ? 'conflict' : 'ok');
-          q.setAttribute('aria-label', isConflict ? 'conflicting queen' : 'valid queen');
+          q.className = 'queen ' + (conflicts.has(key) ? 'conflict' : 'ok');
+          q.setAttribute('aria-label', conflicts.has(key) ? 'conflicting queen' : 'valid queen');
           q.textContent = '♛';
           sq.appendChild(q);
         }
       }
     }
-
-    const count = eightState.filter(x=>x>=0).length;
-    const countEl = document.getElementById('eightCount'); if (countEl) countEl.textContent = String(count);
+    const countEl = document.getElementById('eightCount');
+    if (countEl) countEl.textContent = String(eightState.filter(x => x >= 0).length);
   }
 
-  function toggleQueen(r,c){
-    if (eightState[r] === c) { eightState[r] = -1; return; }
-    // enforce at most one per row (we toggle per row)
-    eightState[r] = c;
-  }
+  function toggleQueen(r, c) { eightState[r] = eightState[r] === c ? -1 : c; }
 
-  // Solve 8-queens (return first solution as array of 8 cols)
-  function solveEight(){
-    const N = 8;
-    const cols = new Set();
-    const diag1 = new Set();
-    const diag2 = new Set();
-    const sol = Array(N).fill(-1);
-    let found = null;
-
-    function backtrack(r){
-      if (r === N) { found = sol.slice(); return true; }
-      for (let c=0;c<N;c++){
-        if (cols.has(c) || diag1.has(r-c) || diag2.has(r+c)) continue;
-        cols.add(c); diag1.add(r-c); diag2.add(r+c); sol[r]=c;
-        if (backtrack(r+1)) return true;
-        cols.delete(c); diag1.delete(r-c); diag2.delete(r+c); sol[r]=-1;
-      }
-      return false;
-    }
-
-    backtrack(0);
-    return found;
-  }
-
-  // Find all solutions (returns array of solutions where each is array of columns)
-  function solveAllEight(){
-    const N = 8;
-    const cols = new Set();
-    const diag1 = new Set();
-    const diag2 = new Set();
-    const sol = Array(N).fill(-1);
-    const results = [];
-
-    function backtrack(r){
+  function solveAllEight() {
+    const N = 8, cols = new Set(), d1 = new Set(), d2 = new Set();
+    const sol = Array(N).fill(-1), results = [];
+    function bt(r) {
       if (r === N) { results.push(sol.slice()); return; }
-      for (let c=0;c<N;c++){
-        if (cols.has(c) || diag1.has(r-c) || diag2.has(r+c)) continue;
-        cols.add(c); diag1.add(r-c); diag2.add(r+c); sol[r]=c;
-        backtrack(r+1);
-        cols.delete(c); diag1.delete(r-c); diag2.delete(r+c); sol[r]=-1;
+      for (let c = 0; c < N; c++) {
+        if (cols.has(c) || d1.has(r - c) || d2.has(r + c)) continue;
+        cols.add(c); d1.add(r - c); d2.add(r + c); sol[r] = c;
+        bt(r + 1);
+        cols.delete(c); d1.delete(r - c); d2.delete(r + c); sol[r] = -1;
       }
     }
-
-    backtrack(0);
-    return results;
+    bt(0); return results;
   }
 
-  function updateSolutionCounter(){
+  function updateSolutionCounter() {
     const idxEl = document.getElementById('eightSolutionIdx');
     const totalEl = document.getElementById('eightSolutionsTotal');
     if (!idxEl || !totalEl) return;
-    if (!eightSolutions || eightSolutions.length===0){ idxEl.textContent='-'; totalEl.textContent='-'; return; }
-    idxEl.textContent = String(eightSolutionIndex+1);
+    if (!eightSolutions.length) { idxEl.textContent = '—'; totalEl.textContent = '—'; return; }
+    idxEl.textContent = String(eightSolutionIndex + 1);
     totalEl.textContent = String(eightSolutions.length);
   }
 
-  // internal storage for multiple solutions
-  let eightSolutions = [];
-  let eightSolutionIndex = -1;
-
-  // Expose for debugging if needed
-  window.openEightModal = openEightModal;
+  window.openEightModal  = openEightModal;
   window.closeEightModal = closeEightModal;
 
-  // ---------------- Knight Tour modal logic for static page ----------------
+  /* ================================================================
+     KNIGHT TOUR MODAL
+     ================================================================ */
   let knightInitialized = false;
-  let knightBoard = Array(64).fill(-1); // -1 = unvisited, 0+ = move number
+  let knightBoard = Array(64).fill(-1);
 
-  function openKnightModal(){
+  function openKnightModal() {
     if (!knightInitialized) initKnightModal();
     const modal = document.getElementById('knightModal');
     if (!modal) return;
     modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden','false');
+    modal.setAttribute('aria-hidden', 'false');
     renderKnightBoard();
   }
-
-  function closeKnightModal(){
+  function closeKnightModal() {
     const modal = document.getElementById('knightModal');
     if (!modal) return;
     modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden','true');
+    modal.setAttribute('aria-hidden', 'true');
   }
 
-  function initKnightModal(){
+  function initKnightModal() {
     knightInitialized = true;
     const container = document.getElementById('knightBoard');
     if (!container) return;
     container.innerHTML = '';
-    for (let r=0;r<8;r++){
-      for (let c=0;c<8;c++){
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
         const sq = document.createElement('div');
-        const isLight = (r + c) % 2 === 0;
-        sq.className = 'kt-square ' + (isLight ? 'light' : 'dark');
+        sq.className = 'kt-square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
         sq.dataset.row = r; sq.dataset.col = c;
-        sq.addEventListener('click', ()=>{
-          toggleKnightSquare(r,c);
-          renderKnightBoard();
-        });
+        sq.addEventListener('click', () => { toggleKnightSquare(r, c); renderKnightBoard(); });
         container.appendChild(sq);
       }
     }
 
-    // wire controls
-    const solveBtn = document.getElementById('knightSolveBtn');
-    const clearBtn = document.getElementById('knightClearBtn');
-    const closeBtn = document.getElementById('knightCloseBtn');
+    const solveBtn    = document.getElementById('knightSolveBtn');
+    const clearBtn    = document.getElementById('knightClearBtn');
+    const closeBtn    = document.getElementById('knightCloseBtn');
     const closeFooter = document.getElementById('knightCloseFooterBtn');
+    const backdrop    = document.querySelector('#knightModal .modal-backdrop');
 
-    if (solveBtn) solveBtn.addEventListener('click', async ()=>{
-      solveBtn.disabled = true;
-      solveBtn.textContent = 'Solving...';
+    if (solveBtn) solveBtn.addEventListener('click', async () => {
+      solveBtn.disabled = true; solveBtn.textContent = 'Solving…';
       const sol = solveKnightTour();
       if (sol) {
         knightBoard = sol.slice();
-        // Animate the solution step by step
-        try {
-          await animateSolution(sol);
-        } catch (e) {
-          // fallback: show solution instantly
-          knightBoard = sol.slice();
-          renderKnightBoard();
-        }
-        // Always render final solution after animation
-        knightBoard = sol.slice();
-        renderKnightBoard();
-      } else alert('No knight tour solution found');
-      solveBtn.disabled = false;
-      solveBtn.textContent = 'Solve';
+        try { await animateSolution(sol); } catch (_) { renderKnightBoard(); }
+        knightBoard = sol.slice(); renderKnightBoard();
+      } else alert('No knight tour solution found.');
+      solveBtn.disabled = false; solveBtn.textContent = 'Solve';
     });
-    if (clearBtn) clearBtn.addEventListener('click', ()=>{ knightBoard = Array(64).fill(-1); renderKnightBoard(); });
-    if (closeBtn) closeBtn.addEventListener('click', closeKnightModal);
+    if (clearBtn)    clearBtn.addEventListener('click', () => { knightBoard = Array(64).fill(-1); renderKnightBoard(); });
+    if (closeBtn)    closeBtn.addEventListener('click', closeKnightModal);
     if (closeFooter) closeFooter.addEventListener('click', closeKnightModal);
+    if (backdrop)    backdrop.addEventListener('click', closeKnightModal);
   }
 
-  function renderKnightBoard(){
+  function renderKnightBoard() {
     const container = document.getElementById('knightBoard');
     if (!container) return;
-    const squares = container.children;
     const maxMove = Math.max(...knightBoard);
-    for (let r=0;r<8;r++){
-      for (let c=0;c<8;c++){
-        const i = r*8 + c;
-        const sq = squares[i];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const i = r * 8 + c;
+        const sq = container.children[i];
         sq.innerHTML = '';
-        const moveNum = knightBoard[i];
-        const isCurrent = (moveNum === maxMove && moveNum >= 0);
-        
-        sq.classList.remove('visited','current');
-        if (moveNum >= 0){
+        const moveNum  = knightBoard[i];
+        const isCurrent = moveNum === maxMove && moveNum >= 0;
+        sq.classList.remove('visited', 'current');
+        if (moveNum >= 0) {
           sq.classList.add('visited');
           if (isCurrent) sq.classList.add('current');
-          
-          // Always show knight symbol
           const kt = document.createElement('div');
-          kt.className = 'knight';
-          kt.textContent = '♘';
+          kt.className = 'knight'; kt.textContent = '♘';
           sq.appendChild(kt);
-          
-          // Show move number if not starting position
-          if (moveNum > 0){
+          if (moveNum > 0) {
             const numEl = document.createElement('div');
-            numEl.className = 'move-num';
-            numEl.textContent = String(moveNum);
+            numEl.className = 'move-num'; numEl.textContent = String(moveNum);
             sq.appendChild(numEl);
           }
         }
       }
     }
-    const visitedCount = knightBoard.filter(x=>x>=0).length;
-    const countEl = document.getElementById('knightMoveCount'); if (countEl) countEl.textContent = String(visitedCount);
+    const countEl = document.getElementById('knightMoveCount');
+    if (countEl) countEl.textContent = String(knightBoard.filter(x => x >= 0).length);
   }
 
-  function toggleKnightSquare(r,c){
-    const idx = r*8 + c;
-    if (knightBoard[idx] >= 0){
-      knightBoard[idx] = -1;
-    } else {
-      const nextNum = knightBoard.filter(x=>x>=0).length;
-      if (nextNum === 0 || isKnightMoveLegal(r,c)){
-        knightBoard[idx] = nextNum;
-      }
-    }
+  function toggleKnightSquare(r, c) {
+    const idx = r * 8 + c;
+    if (knightBoard[idx] >= 0) { knightBoard[idx] = -1; return; }
+    const nextNum = knightBoard.filter(x => x >= 0).length;
+    if (nextNum === 0 || isKnightMoveLegal(r, c)) knightBoard[idx] = nextNum;
   }
 
-  function isKnightMoveLegal(r,c){
+  function isKnightMoveLegal(r, c) {
     const lastMove = Math.max(...knightBoard);
-    if (lastMove < 0) return r === 0 && c === 0; // first move can be anywhere
-    for (let i=0;i<64;i++){
-      if (knightBoard[i] === lastMove){
-        const pr = Math.floor(i/8), pc = i % 8;
+    if (lastMove < 0) return true;
+    for (let i = 0; i < 64; i++) {
+      if (knightBoard[i] === lastMove) {
+        const pr = Math.floor(i / 8), pc = i % 8;
         const dr = Math.abs(pr - r), dc = Math.abs(pc - c);
         if ((dr === 2 && dc === 1) || (dr === 1 && dc === 2)) return true;
       }
@@ -552,51 +430,154 @@
     return false;
   }
 
-  function solveKnightTour(){
+  function solveKnightTour() {
     const moves = [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]];
     const board = Array(64).fill(-1);
-    
-    function backtrack(r,c,moveCount){
-      if (moveCount === 64) return true;
-      for (let [dr,dc] of moves){
+    function bt(r, c, move) {
+      if (move === 64) return true;
+      const nexts = [];
+      for (const [dr, dc] of moves) {
         const nr = r + dr, nc = c + dc;
-        if (nr>=0 && nr<8 && nc>=0 && nc<8 && board[nr*8+nc] === -1){
-          board[nr*8+nc] = moveCount;
-          if (backtrack(nr,nc,moveCount+1)) return true;
-          board[nr*8+nc] = -1;
+        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr * 8 + nc] === -1) {
+          let deg = 0;
+          for (const [dr2, dc2] of moves) {
+            const nr2 = nr + dr2, nc2 = nc + dc2;
+            if (nr2 >= 0 && nr2 < 8 && nc2 >= 0 && nc2 < 8 && board[nr2 * 8 + nc2] === -1) deg++;
+          }
+          nexts.push({ nr, nc, deg });
         }
+      }
+      nexts.sort((a, b) => a.deg - b.deg);
+      for (const { nr, nc } of nexts) {
+        board[nr * 8 + nc] = move;
+        if (bt(nr, nc, move + 1)) return true;
+        board[nr * 8 + nc] = -1;
       }
       return false;
     }
-
-    board[0] = 0; // start at top-left
-    if (backtrack(0,0,1)) return board;
-    return null;
+    board[0] = 0;
+    return bt(0, 0, 1) ? board : null;
   }
 
-  function animateSolution(sol){
-    return new Promise((resolve)=>{
+  function animateSolution(sol) {
+    return new Promise(resolve => {
       let step = 0;
-      const interval = setInterval(()=>{
-        if (step < 64){
-          // Highlight only up to current step
-          const tempBoard = Array(64).fill(-1);
-          for (let i=0;i<64;i++){
-            if (sol[i] <= step) tempBoard[i] = sol[i];
-          }
-          knightBoard = tempBoard;
-          renderKnightBoard();
-          step++;
+      const id = setInterval(() => {
+        if (step < 64) {
+          const tmp = Array(64).fill(-1);
+          for (let i = 0; i < 64; i++) if (sol[i] <= step) tmp[i] = sol[i];
+          knightBoard = tmp; renderKnightBoard(); step++;
         } else {
-          clearInterval(interval);
-          knightBoard = sol.slice();
-          renderKnightBoard();
-          resolve();
+          clearInterval(id); knightBoard = sol.slice(); renderKnightBoard(); resolve();
         }
-      }, 30); // 30ms per move for smooth animation
+      }, 28);
     });
   }
 
-  window.openKnightModal = openKnightModal;
+  window.openKnightModal  = openKnightModal;
   window.closeKnightModal = closeKnightModal;
+
+  /* ================================================================
+     LICHESS DAILY PUZZLE
+     API: https://lichess.org/api/puzzle/daily  (no auth needed, CORS ok)
+     Response shape: { game: { pgn, fen }, puzzle: { fen, rating, themes, id } }
+     ================================================================ */
+  async function fetchLichessDaily() {
+    const res = await fetch('https://lichess.org/api/puzzle/daily', {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`Lichess API ${res.status}`);
+    return res.json();
+  }
+
+  let dailyInitialized = false;
+  let dailyBoardEl = null;
+
+  function openDailyModal() {
+    const modal = document.getElementById('dailyModal');
+    if (!modal) return;
+    if (!dailyInitialized) {
+      dailyBoardEl = document.getElementById('dailyBoard');
+      createSquares(dailyBoardEl);
+      const closeBtn  = document.getElementById('dailyCloseBtn');
+      const backdrop  = document.querySelector('#dailyModal .modal-backdrop');
+      if (closeBtn) closeBtn.addEventListener('click', closeDailyModal);
+      if (backdrop) backdrop.addEventListener('click', closeDailyModal);
+      dailyInitialized = true;
+    }
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    loadDailyPuzzle();
+  }
+
+  function closeDailyModal() {
+    const modal = document.getElementById('dailyModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  async function loadDailyPuzzle() {
+    const titleEl  = document.getElementById('dailyPuzzleTitle');
+    const descEl   = document.getElementById('dailyPuzzleDesc');
+    const ratingEl = document.getElementById('dailyRating');
+    const themesEl = document.getElementById('dailyThemes');
+    const linkEl   = document.getElementById('dailyLink');
+
+    if (titleEl)  titleEl.textContent = 'Loading…';
+    if (descEl)   descEl.textContent  = 'Fetching today\'s puzzle from Lichess…';
+    if (ratingEl) ratingEl.textContent = '—';
+    if (themesEl) themesEl.textContent  = '—';
+    clearPieces(dailyBoardEl);
+
+    try {
+      const data = await fetchLichessDaily();
+      const puzzle = data.puzzle;
+      const fen    = puzzle?.fen || data?.game?.fen || '';
+
+      if (titleEl)  titleEl.textContent = `Puzzle #${puzzle?.id ?? '?'}`;
+      if (descEl)   descEl.textContent  = puzzle?.plays
+        ? `Played ${puzzle.plays.toLocaleString()} times · Find the best move!`
+        : 'Find the best continuation for the position below.';
+      if (ratingEl) ratingEl.textContent = String(puzzle?.rating ?? '?');
+      if (themesEl) themesEl.textContent = (puzzle?.themes ?? []).slice(0, 3).join(', ') || '—';
+      if (linkEl)   linkEl.href = `https://lichess.org/training/${puzzle?.id ?? ''}`;
+
+      if (fen && dailyBoardEl) renderFromFEN(fen, dailyBoardEl);
+
+    } catch (err) {
+      console.error('Daily puzzle error:', err);
+      if (titleEl) titleEl.textContent = 'Error';
+      if (descEl)  descEl.textContent  = 'Could not load the daily puzzle. Check your internet connection.';
+    }
+  }
+
+  window.openDailyModal  = openDailyModal;
+  window.closeDailyModal = closeDailyModal;
+
+  /* ================================================================
+     TOAST NOTIFICATION
+     ================================================================ */
+  function showToast(msg, isError = false) {
+    let toast = document.getElementById('keenToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'keenToast';
+      toast.style.cssText = `
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        background:#1a2535; border:1px solid rgba(201,168,76,0.3);
+        color:#e8e2d5; font-family:'DM Mono',monospace; font-size:0.78rem;
+        padding:10px 20px; border-radius:8px; z-index:9999;
+        box-shadow:0 8px 32px rgba(0,0,0,0.6); max-width:90vw; text-align:center;
+        transition:opacity 0.3s;
+      `;
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.borderColor = isError ? 'rgba(224,82,82,0.4)' : 'rgba(201,168,76,0.3)';
+    toast.style.opacity = '1';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
+  }
+
 })();
