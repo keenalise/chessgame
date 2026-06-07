@@ -788,3 +788,60 @@ body {
     min-width: 160px;
   }
 }
+
+/* ── Random Puzzle board ── */
+.random-board {
+  width: min(560px, 85vw) !important;
+  height: min(560px, 85vw) !important;
+  cursor: pointer;
+}
+
+/* Selected piece glow */
+.square.selected {
+  outline: 3px solid var(--gold);
+  outline-offset: -3px;
+  background: rgba(201,168,76,0.35) !important;
+  z-index: 2;
+}
+
+/* Legal move dot overlay */
+.square.legal-target::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(201,168,76,0.55) 28%, transparent 29%);
+  pointer-events: none;
+  border-radius: 0;
+  animation: dotPop 0.15s ease both;
+}
+/* legal-target with a piece: ring instead of dot */
+.square.legal-target.has-piece::after {
+  background: none;
+  outline: 3px solid rgba(201,168,76,0.6);
+  outline-offset: -3px;
+}
+
+@keyframes dotPop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* Last move highlight */
+.square.last-from { background: rgba(201,168,76,0.18) !important; }
+.square.last-to   { background: rgba(201,168,76,0.32) !important; }
+
+/* Correct / Wrong flash */
+.square.flash-correct { animation: flashGreen 0.5s ease; }
+.square.flash-wrong   { animation: flashRed   0.4s ease; }
+
+@keyframes flashGreen {
+  0%,100% { filter: none; }
+  40%     { filter: brightness(1.4) sepia(1) saturate(4) hue-rotate(80deg); }
+}
+@keyframes flashRed {
+  0%,100% { filter: none; }
+  40%     { filter: brightness(1.4) sepia(1) saturate(4) hue-rotate(-20deg); }
+}

@@ -45,6 +45,10 @@
         <button id="navPuzzleDailyBtn" class="puzzle-item">
           <span class="puzzle-dot">◆</span> Daily Puzzle
         </button>
+
+        <button id="navPuzzleRandomBtn" class="puzzle-item">
+          <span class="puzzle-dot">◆</span> Random Puzzle
+        </button>
       </div>
       <button id="navNewsBtn" class="nav-item">
         <span class="nav-icon">◉</span><span class="nav-label">News</span>
@@ -176,6 +180,52 @@
         <a id="dailyLink" href="#" target="_blank" class="btn btn-lichess" style="text-decoration:none;padding:6px 12px;font-size:0.8rem;">
           <img src="https://lichess1.org/assets/logo/lichess-favicon-32.png" width="13" height="13" alt="" style="vertical-align:middle;margin-right:4px;">Open on Lichess
         </a>
+      </div>
+    </div>
+  </div>
+
+    <!-- Random Puzzle Modal -->
+  <div id="randomModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-center" style="max-width:820px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow">Lichess · Random Puzzle</div>
+          <h2 id="randomPuzzleTitle">Loading…</h2>
+        </div>
+        <button id="randomCloseBtn" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <p class="modal-desc" id="randomPuzzleDesc">Fetching a puzzle…</p>
+
+      <!-- Status bar -->
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">
+        <span class="modal-status">Rating: <span id="randomRating" class="status-num">—</span></span>
+        <span class="modal-status">Themes: <span id="randomThemes" class="status-num">—</span></span>
+        <span class="modal-status" id="randomTurnLabel" style="font-size:0.8rem;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.06);border:1px solid var(--border);">—</span>
+      </div>
+
+      <!-- Feedback bar -->
+      <div id="randomFeedback" style="
+        height:36px;display:flex;align-items:center;justify-content:center;
+        font-family:'DM Mono',monospace;font-size:0.85rem;font-weight:500;
+        border-radius:8px;margin:4px 0;padding:0 16px;
+        transition:all 0.25s;opacity:0;
+      "></div>
+
+      <!-- Board -->
+      <div id="randomBoard" class="board random-board"></div>
+
+      <!-- Controls -->
+      <div class="modal-controls" style="margin-top:12px;">
+        <div class="controls-left">
+          <span class="modal-status">Move: <span id="randomMoveNum" class="status-num">0</span> / <span id="randomMoveTotal" class="status-num">?</span></span>
+        </div>
+        <div class="controls-right">
+          <button id="randomNewBtn"      class="btn btn-primary">New Puzzle</button>
+          <button id="randomRetryBtn"    class="btn btn-gold">Retry</button>
+          <button id="randomSolutionBtn" class="btn btn-ghost">Show Solution</button>
+          <button id="randomCloseFooter" class="btn btn-ghost">Close</button>
+        </div>
       </div>
     </div>
   </div>
