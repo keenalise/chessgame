@@ -123,6 +123,8 @@
     if (puzzle8) puzzle8.addEventListener('click', () => { setActive('navPuzzleBtn'); openEightModal(); });
     if (puzzleKnight) puzzleKnight.addEventListener('click', () => { setActive('navPuzzleBtn'); openKnightModal(); });
     if (puzzleDaily)  puzzleDaily.addEventListener('click',  () => { setActive('navPuzzleBtn'); openDailyModal(); });
+    const puzzleRandom = document.getElementById('navPuzzleRandomBtn');
+    if (puzzleRandom) puzzleRandom.addEventListener('click', () => { setActive('navPuzzleBtn'); openRandomModal(); });
 
     if (news)  news.addEventListener('click',  () => { setActive('navNewsBtn');  window.open('https://en.chessbase.com/', '_blank'); });
     if (learn) learn.addEventListener('click', () => { setActive('navLearnBtn'); window.open('https://learningchess.net/us/courses', '_blank'); });
@@ -554,6 +556,466 @@
 
   window.openDailyModal  = openDailyModal;
   window.closeDailyModal = closeDailyModal;
+
+  /* ================================================================
+     RANDOM PUZZLE — Interactive board with legal-move highlighting
+     Uses Lichess puzzle API: GET /api/puzzle/next (no auth needed)
+     Solution stored as UCI move list e.g. ["e2e4","e7e5","f1c4"]
+     The first move is the opponent's move (played automatically),
+     then odd moves are the user's, even moves are the opponent's.
+     ================================================================ */
+
+  /* ── Minimal chess engine for move validation ── */
+
+  // Board state: array[64], index = rank*8+file (rank 0=rank8 top)
+  // piece strings: 'wP','bK', etc. null = empty
+  const RC = (r, c) => r * 8 + c;
+  const IDX = (sq) => { const f = sq.charCodeAt(0) - 97; const r = 8 - parseInt(sq[1]); return RC(r, f); };
+  const SQ  = (idx) => String.fromCharCode(97 + (idx % 8)) + String(8 - Math.floor(idx / 8));
+
+  // Parse FEN into board array + metadata
+  function parseFEN(fen) {
+    const parts = fen.split(' ');
+    const rows  = parts[0].split('/');
+    const board = Array(64).fill(null);
+    const colorMap = { 'P':'wP','R':'wR','N':'wN','B':'wB','Q':'wQ','K':'wK',
+                       'p':'bP','r':'bR','n':'bN','b':'bB','q':'bQ','k':'bK' };
+    for (let r = 0; r < 8; r++) {
+      let c = 0;
+      for (const ch of rows[r]) {
+        if (/[1-8]/.test(ch)) { c += +ch; }
+        else { board[RC(r,c)] = colorMap[ch]; c++; }
+      }
+    }
+    return {
+      board,
+      turn:     parts[1] === 'w' ? 'w' : 'b',
+      castling: parts[2] || '-',
+      ep:       parts[3] !== '-' ? IDX(parts[3]) : -1,
+    };
+  }
+
+  // Apply a UCI move (e.g. "e2e4", "e1g1" for castling, "e7e8q" for promo)
+  function applyUCI(state, uci) {
+    const from = IDX(uci.slice(0,2));
+    const to   = IDX(uci.slice(2,4));
+    const promo= uci[4]; // q/r/b/n or undefined
+    const { board, turn } = state;
+    const piece = board[from];
+    const newBoard = board.slice();
+    const newCastle = state.castling;
+    let newEP = -1;
+
+    // Castling
+    if (piece === 'wK' && from === IDX('e1')) {
+      if (to === IDX('g1')) { newBoard[IDX('h1')] = null; newBoard[IDX('f1')] = 'wR'; }
+      if (to === IDX('c1')) { newBoard[IDX('a1')] = null; newBoard[IDX('d1')] = 'wR'; }
+    }
+    if (piece === 'bK' && from === IDX('e8')) {
+      if (to === IDX('g8')) { newBoard[IDX('h8')] = null; newBoard[IDX('f8')] = 'bR'; }
+      if (to === IDX('c8')) { newBoard[IDX('a8')] = null; newBoard[IDX('d8')] = 'bR'; }
+    }
+    // En passant capture
+    if ((piece === 'wP' || piece === 'bP') && to === state.ep) {
+      const capRank = Math.floor(to / 8) + (piece === 'wP' ? 1 : -1);
+      newBoard[RC(capRank, to % 8)] = null;
+    }
+    // Double pawn push → set EP square
+    if (piece === 'wP' && Math.floor(from/8)===6 && Math.floor(to/8)===4) newEP = RC(5, to%8);
+    if (piece === 'bP' && Math.floor(from/8)===1 && Math.floor(to/8)===3) newEP = RC(2, to%8);
+
+    newBoard[to]   = promo ? (turn + promo.toUpperCase()) : piece;
+    newBoard[from] = null;
+    return { board: newBoard, turn: turn === 'w' ? 'b' : 'w', castling: newCastle, ep: newEP };
+  }
+
+  // Generate pseudo-legal destinations for a piece at `from`
+  function destinations(state, from) {
+    const { board, turn, ep } = state;
+    const piece = board[from];
+    if (!piece || piece[0] !== turn) return [];
+    const dests = [];
+    const type  = piece[1];
+    const enemy = turn === 'w' ? 'b' : 'w';
+    const r0 = Math.floor(from / 8), c0 = from % 8;
+
+    const push = (r, c) => {
+      if (r < 0 || r > 7 || c < 0 || c > 7) return false;
+      const idx = RC(r,c);
+      if (board[idx] && board[idx][0] === turn) return false; // own piece
+      dests.push(idx);
+      return !board[idx]; // true if square was empty (can slide further)
+    };
+
+    const slide = (dirs) => dirs.forEach(([dr,dc]) => {
+      let r=r0+dr, c=c0+dc;
+      while (r>=0&&r<=7&&c>=0&&c<=7) { if(!push(r,c)) break; r+=dr; c+=dc; }
+    });
+
+    if (type === 'P') {
+      const dir = turn === 'w' ? -1 : 1;
+      const start = turn === 'w' ? 6 : 1;
+      // forward
+      if (r0+dir>=0&&r0+dir<=7&&!board[RC(r0+dir,c0)]) {
+        dests.push(RC(r0+dir,c0));
+        if (r0===start && !board[RC(r0+2*dir,c0)]) dests.push(RC(r0+2*dir,c0));
+      }
+      // captures
+      for (const dc of [-1,1]) {
+        if (c0+dc<0||c0+dc>7) continue;
+        const t=RC(r0+dir,c0+dc);
+        if (board[t]?.[0]===enemy || t===ep) dests.push(t);
+      }
+    } else if (type === 'N') {
+      [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]]
+        .forEach(([dr,dc]) => push(r0+dr,c0+dc));
+    } else if (type === 'B') {
+      slide([[1,1],[1,-1],[-1,1],[-1,-1]]);
+    } else if (type === 'R') {
+      slide([[1,0],[-1,0],[0,1],[0,-1]]);
+    } else if (type === 'Q') {
+      slide([[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]);
+    } else if (type === 'K') {
+      [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+        .forEach(([dr,dc]) => push(r0+dr,c0+dc));
+      // Castling (simplified: only checks empty squares, not check)
+      if (turn==='w'&&from===IDX('e1')) {
+        if (state.castling.includes('K')&&!board[IDX('f1')]&&!board[IDX('g1')]) dests.push(IDX('g1'));
+        if (state.castling.includes('Q')&&!board[IDX('d1')]&&!board[IDX('c1')]&&!board[IDX('b1')]) dests.push(IDX('c1'));
+      }
+      if (turn==='b'&&from===IDX('e8')) {
+        if (state.castling.includes('k')&&!board[IDX('f8')]&&!board[IDX('g8')]) dests.push(IDX('g8'));
+        if (state.castling.includes('q')&&!board[IDX('d8')]&&!board[IDX('c8')]&&!board[IDX('b8')]) dests.push(IDX('c8'));
+      }
+    }
+    return dests;
+  }
+
+  /* ── Random Puzzle state ── */
+  let rndState       = null;   // current chess position state
+  let rndSolution    = [];     // full UCI move list from Lichess
+  let rndMoveIdx     = 0;      // which move we're expecting next from user
+  let rndSelected    = -1;     // currently selected square index (-1 = none)
+  let rndLegalDests  = [];     // legal destinations for selected piece
+  let rndLastFrom    = -1;
+  let rndLastTo      = -1;
+  let rndPuzzleId    = '';
+  let rndInitialized = false;
+  let rndBoardEl     = null;
+  let rndSolved      = false;
+
+  async function fetchRandomPuzzle() {
+    // Lichess random puzzle endpoint — no auth, CORS open
+    const res = await fetch('https://lichess.org/api/puzzle/next', {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`Lichess ${res.status}`);
+    return res.json();
+  }
+
+  function openRandomModal() {
+    const modal = document.getElementById('randomModal');
+    if (!modal) return;
+    if (!rndInitialized) initRandomModal();
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+    loadRandomPuzzle();
+  }
+  function closeRandomModal() {
+    const modal = document.getElementById('randomModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  function initRandomModal() {
+    rndInitialized = true;
+    rndBoardEl = document.getElementById('randomBoard');
+    createSquares(rndBoardEl);
+
+    // Wire square clicks
+    Array.from(rndBoardEl.children).forEach((sq, idx) => {
+      sq.addEventListener('click', () => onRandomSquareClick(idx));
+    });
+
+    document.getElementById('randomCloseBtn')?.addEventListener('click', closeRandomModal);
+    document.getElementById('randomCloseFooter')?.addEventListener('click', closeRandomModal);
+    document.querySelector('#randomModal .modal-backdrop')?.addEventListener('click', closeRandomModal);
+    document.getElementById('randomNewBtn')?.addEventListener('click', loadRandomPuzzle);
+    document.getElementById('randomRetryBtn')?.addEventListener('click', retryRandomPuzzle);
+    document.getElementById('randomSolutionBtn')?.addEventListener('click', showRandomSolution);
+  }
+
+  async function loadRandomPuzzle() {
+    setRandomFeedback('', '');
+    setRandomDesc('Fetching puzzle from Lichess…');
+    document.getElementById('randomPuzzleTitle').textContent = 'Loading…';
+    clearPieces(rndBoardEl);
+    rndSelected = -1; rndLegalDests = []; rndSolved = false;
+
+    try {
+      const data = await fetchRandomPuzzle();
+      const puzzle = data.puzzle;
+      const initialFen = data.game?.fen || puzzle?.fen;
+
+      rndPuzzleId   = puzzle?.id ?? '?';
+      rndSolution   = puzzle?.solution ?? [];   // UCI moves: first = opponent's move
+      rndMoveIdx    = 0;
+      rndLastFrom   = -1; rndLastTo = -1;
+
+      // Parse the initial FEN (position BEFORE the puzzle starts)
+      rndState = parseFEN(initialFen);
+
+      document.getElementById('randomPuzzleTitle').textContent = `Puzzle #${rndPuzzleId}`;
+      document.getElementById('randomRating').textContent      = String(puzzle?.rating ?? '?');
+      document.getElementById('randomThemes').textContent      = (puzzle?.themes ?? []).slice(0,3).join(', ') || '—';
+      document.getElementById('randomMoveTotal').textContent   = String(Math.ceil((rndSolution.length - 1) / 2));
+      document.getElementById('randomMoveNum').textContent     = '0';
+
+      renderRandomBoard();
+      updateTurnLabel();
+
+      // Play opponent's first move automatically after a short delay
+      setTimeout(() => playOpponentMove(), 700);
+
+    } catch(e) {
+      console.error('Random puzzle error:', e);
+      setRandomDesc('Could not load puzzle — check your connection.');
+      document.getElementById('randomPuzzleTitle').textContent = 'Error';
+    }
+  }
+
+  function retryRandomPuzzle() {
+    if (!rndSolution.length) return;
+    // Replay opponent's first move from scratch
+    const initialFen = rndState._initialFen;
+    if (!initialFen) { loadRandomPuzzle(); return; }
+    rndState    = parseFEN(initialFen);
+    rndMoveIdx  = 0;
+    rndSelected = -1; rndLegalDests = []; rndSolved = false;
+    rndLastFrom = -1; rndLastTo = -1;
+    setRandomFeedback('', '');
+    renderRandomBoard();
+    updateTurnLabel();
+    setTimeout(() => playOpponentMove(), 500);
+  }
+
+  function playOpponentMove() {
+    if (rndMoveIdx >= rndSolution.length) return;
+    const uci  = rndSolution[rndMoveIdx];
+    rndLastFrom = IDX(uci.slice(0,2));
+    rndLastTo   = IDX(uci.slice(2,4));
+
+    // Store initial FEN for retry (after first opponent move index is 0)
+    if (rndMoveIdx === 0) rndState._initialFen = fenFromState(rndState);
+
+    rndState = applyUCI(rndState, uci);
+    rndMoveIdx++;
+    renderRandomBoard();
+    updateTurnLabel();
+    setRandomDesc('Your turn — find the best move!');
+    setRandomFeedback('', '');
+  }
+
+  function onRandomSquareClick(idx) {
+    if (rndSolved) return;
+    if (rndMoveIdx >= rndSolution.length) return;
+
+    const sq    = rndBoardEl.children[idx];
+    const piece = rndState.board[idx];
+
+    // If a piece is already selected, try to move
+    if (rndSelected >= 0) {
+      if (rndLegalDests.includes(idx)) {
+        attemptMove(rndSelected, idx);
+        return;
+      }
+      // Clicked own piece — reselect
+      if (piece && piece[0] === rndState.turn) {
+        selectSquare(idx);
+        return;
+      }
+      // Clicked elsewhere — deselect
+      deselectAll();
+      return;
+    }
+
+    // Nothing selected — select own piece
+    if (piece && piece[0] === rndState.turn) {
+      selectSquare(idx);
+    }
+  }
+
+  function selectSquare(idx) {
+    deselectAll();
+    rndSelected   = idx;
+    rndLegalDests = destinations(rndState, idx);
+    rndBoardEl.children[idx].classList.add('selected');
+    rndLegalDests.forEach(d => {
+      const dsq = rndBoardEl.children[d];
+      dsq.classList.add('legal-target');
+      if (rndState.board[d]) dsq.classList.add('has-piece');
+    });
+  }
+
+  function deselectAll() {
+    rndSelected = -1; rndLegalDests = [];
+    Array.from(rndBoardEl.children).forEach(sq => {
+      sq.classList.remove('selected','legal-target','has-piece');
+    });
+  }
+
+  function attemptMove(from, to) {
+    const uci         = SQ(from) + SQ(to);
+    const expectedUCI = rndSolution[rndMoveIdx];
+
+    // Normalise: ignore promotion suffix for comparison unless specified
+    const normalise = s => s.slice(0,4);
+    const correct   = normalise(uci) === normalise(expectedUCI);
+
+    deselectAll();
+
+    if (correct) {
+      // Apply user move
+      rndLastFrom = from; rndLastTo = to;
+      rndState    = applyUCI(rndState, expectedUCI); // use full UCI (incl promo)
+      rndMoveIdx++;
+      renderRandomBoard();
+
+      const userMoveNum = Math.ceil(rndMoveIdx / 2);
+      document.getElementById('randomMoveNum').textContent = String(userMoveNum);
+
+      if (rndMoveIdx >= rndSolution.length) {
+        // Puzzle complete!
+        rndSolved = true;
+        setRandomFeedback('✓ Puzzle solved! Excellent!', 'correct');
+        setRandomDesc('You found all the best moves!');
+        flashSquare(to, 'correct');
+        return;
+      }
+
+      setRandomFeedback('✓ Correct! Opponent is thinking…', 'correct');
+      flashSquare(to, 'correct');
+
+      // Play opponent's reply after a delay
+      setTimeout(() => playOpponentMove(), 900);
+
+    } else {
+      // Wrong move — flash red, keep position
+      setRandomFeedback('✗ Not the best move — try again!', 'wrong');
+      flashSquare(to, 'wrong');
+    }
+  }
+
+  function showRandomSolution() {
+    if (!rndSolution.length) return;
+    // Play all remaining moves at 600ms intervals
+    let i = rndMoveIdx;
+    setRandomFeedback('Showing solution…', '');
+    rndSolved = true;
+    deselectAll();
+
+    function next() {
+      if (i >= rndSolution.length) {
+        setRandomFeedback('✓ Solution complete!', 'correct');
+        return;
+      }
+      const uci = rndSolution[i];
+      rndLastFrom = IDX(uci.slice(0,2));
+      rndLastTo   = IDX(uci.slice(2,4));
+      rndState = applyUCI(rndState, uci);
+      i++;
+      renderRandomBoard();
+      setTimeout(next, 650);
+    }
+    setTimeout(next, 200);
+  }
+
+  function renderRandomBoard() {
+    clearPieces(rndBoardEl);
+    // Clear highlights
+    Array.from(rndBoardEl.children).forEach(sq =>
+      sq.classList.remove('last-from','last-to','selected','legal-target','has-piece')
+    );
+    // Last move highlights
+    if (rndLastFrom >= 0) rndBoardEl.children[rndLastFrom].classList.add('last-from');
+    if (rndLastTo   >= 0) rndBoardEl.children[rndLastTo].classList.add('last-to');
+    // Place pieces
+    rndState.board.forEach((piece, idx) => {
+      if (!piece) return;
+      const img = makePieceImg(piece[1] === piece[1].toUpperCase()
+        ? (piece[0]==='w' ? piece[1] : piece[1].toLowerCase())
+        : piece[1],
+        '82%'
+      );
+      // makePieceImg expects FEN char: uppercase = white, lowercase = black
+      const fenChar = piece[0]==='w' ? piece[1].toUpperCase() : piece[1].toLowerCase();
+      const img2 = makePieceImg(fenChar, '82%');
+      if (img2) rndBoardEl.children[idx].appendChild(img2);
+    });
+  }
+
+  function updateTurnLabel() {
+    const label = document.getElementById('randomTurnLabel');
+    if (!label) return;
+    const t = rndState.turn;
+    label.textContent  = t === 'w' ? '⬜ White to move' : '⬛ Black to move';
+    label.style.color  = t === 'w' ? '#e8d5b0' : '#b58863';
+  }
+
+  function setRandomFeedback(msg, type) {
+    const el = document.getElementById('randomFeedback');
+    if (!el) return;
+    el.textContent    = msg;
+    el.style.opacity  = msg ? '1' : '0';
+    el.style.background = type === 'correct'
+      ? 'rgba(82,201,122,0.12)'
+      : type === 'wrong'
+      ? 'rgba(224,82,82,0.12)'
+      : 'transparent';
+    el.style.color = type === 'correct' ? '#52c97a'
+      : type === 'wrong' ? '#e05252'
+      : 'var(--text-dim)';
+    el.style.border = type
+      ? `1px solid ${type==='correct' ? 'rgba(82,201,122,0.3)' : 'rgba(224,82,82,0.3)'}`
+      : 'none';
+  }
+
+  function setRandomDesc(msg) {
+    const el = document.getElementById('randomPuzzleDesc');
+    if (el) el.textContent = msg;
+  }
+
+  function flashSquare(idx, type) {
+    const sq = rndBoardEl.children[idx];
+    if (!sq) return;
+    const cls = type === 'correct' ? 'flash-correct' : 'flash-wrong';
+    sq.classList.remove('flash-correct','flash-wrong');
+    void sq.offsetWidth; // reflow to restart animation
+    sq.classList.add(cls);
+    setTimeout(() => sq.classList.remove(cls), 600);
+  }
+
+  // Minimal FEN serializer (for retry — placement + turn only)
+  function fenFromState(state) {
+    const pieceToFen = p =>
+      p[0]==='w' ? p[1].toUpperCase() : p[1].toLowerCase();
+    let fen = '';
+    for (let r = 0; r < 8; r++) {
+      let empty = 0;
+      for (let c = 0; c < 8; c++) {
+        const p = state.board[RC(r,c)];
+        if (p) { if (empty) { fen += empty; empty=0; } fen += pieceToFen(p); }
+        else empty++;
+      }
+      if (empty) fen += empty;
+      if (r < 7) fen += '/';
+    }
+    return fen + ' ' + state.turn + ' ' + state.castling + ' - 0 1';
+  }
+
+  window.openRandomModal  = openRandomModal;
+  window.closeRandomModal = closeRandomModal;
 
   /* ================================================================
      TOAST NOTIFICATION
