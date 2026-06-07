@@ -480,9 +480,7 @@
   window.closeKnightModal = closeKnightModal;
 
   /* ================================================================
-     LICHESS DAILY PUZZLE
-     API: https://lichess.org/api/puzzle/daily  (no auth needed, CORS ok)
-     Response shape: { game: { pgn, fen }, puzzle: { fen, rating, themes, id } }
+     LICHESS DAILY PUZZLE — Interactive (mirrors Random Puzzle engine)
      ================================================================ */
   async function fetchLichessDaily() {
     const res = await fetch('https://lichess.org/api/puzzle/daily', {
@@ -493,20 +491,21 @@
   }
 
   let dailyInitialized = false;
-  let dailyBoardEl = null;
+  let dailyBoardEl     = null;
+  let dlyState         = null;
+  let dlySolution      = [];
+  let dlyMoveIdx       = 0;
+  let dlySelected      = -1;
+  let dlyLegalDests    = [];
+  let dlyLastFrom      = -1;
+  let dlyLastTo        = -1;
+  let dlySolved        = false;
+  let dlyInitialFen    = '';
 
   function openDailyModal() {
     const modal = document.getElementById('dailyModal');
     if (!modal) return;
-    if (!dailyInitialized) {
-      dailyBoardEl = document.getElementById('dailyBoard');
-      createSquares(dailyBoardEl);
-      const closeBtn  = document.getElementById('dailyCloseBtn');
-      const backdrop  = document.querySelector('#dailyModal .modal-backdrop');
-      if (closeBtn) closeBtn.addEventListener('click', closeDailyModal);
-      if (backdrop) backdrop.addEventListener('click', closeDailyModal);
-      dailyInitialized = true;
-    }
+    if (!dailyInitialized) initDailyModal();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     loadDailyPuzzle();
@@ -519,39 +518,229 @@
     modal.setAttribute('aria-hidden', 'true');
   }
 
-  async function loadDailyPuzzle() {
-    const titleEl  = document.getElementById('dailyPuzzleTitle');
-    const descEl   = document.getElementById('dailyPuzzleDesc');
-    const ratingEl = document.getElementById('dailyRating');
-    const themesEl = document.getElementById('dailyThemes');
-    const linkEl   = document.getElementById('dailyLink');
+  function initDailyModal() {
+    dailyInitialized = true;
+    dailyBoardEl = document.getElementById('dailyBoard');
+    createSquares(dailyBoardEl);
 
-    if (titleEl)  titleEl.textContent = 'Loading…';
-    if (descEl)   descEl.textContent  = 'Fetching today\'s puzzle from Lichess…';
-    if (ratingEl) ratingEl.textContent = '—';
-    if (themesEl) themesEl.textContent  = '—';
+    Array.from(dailyBoardEl.children).forEach((sq, idx) => {
+      sq.addEventListener('click', () => onDailySquareClick(idx));
+    });
+
+    document.getElementById('dailyCloseBtn')?.addEventListener('click', closeDailyModal);
+    document.getElementById('dailyCloseFooterBtn')?.addEventListener('click', closeDailyModal);
+    document.querySelector('#dailyModal .modal-backdrop')?.addEventListener('click', closeDailyModal);
+    document.getElementById('dailyRetryBtn')?.addEventListener('click', retryDailyPuzzle);
+    document.getElementById('dailySolutionBtn')?.addEventListener('click', showDailySolution);
+  }
+
+  async function loadDailyPuzzle() {
+    setDailyFeedback('', '');
+    setDailyDesc('Fetching today\'s puzzle from Lichess…');
+    document.getElementById('dailyPuzzleTitle').textContent = 'Loading…';
+    document.getElementById('dailyRating').textContent  = '—';
+    document.getElementById('dailyThemes').textContent  = '—';
+    document.getElementById('dailyMoveNum').textContent  = '0';
+    document.getElementById('dailyMoveTotal').textContent = '?';
+    document.getElementById('dailyTurnLabel').textContent = '—';
     clearPieces(dailyBoardEl);
+    dlySelected = -1; dlyLegalDests = []; dlySolved = false;
 
     try {
       const data = await fetchLichessDaily();
       const puzzle = data.puzzle;
-      const fen    = puzzle?.fen || data?.game?.fen || '';
+      const initialFen = data.game?.fen || puzzle?.fen;
 
-      if (titleEl)  titleEl.textContent = `Puzzle #${puzzle?.id ?? '?'}`;
-      if (descEl)   descEl.textContent  = puzzle?.plays
-        ? `Played ${puzzle.plays.toLocaleString()} times · Find the best move!`
-        : 'Find the best continuation for the position below.';
-      if (ratingEl) ratingEl.textContent = String(puzzle?.rating ?? '?');
-      if (themesEl) themesEl.textContent = (puzzle?.themes ?? []).slice(0, 3).join(', ') || '—';
-      if (linkEl)   linkEl.href = `https://lichess.org/training/${puzzle?.id ?? ''}`;
+      dlySolution  = puzzle?.solution ?? [];
+      dlyMoveIdx   = 0;
+      dlyLastFrom  = -1; dlyLastTo = -1;
+      dlyState     = parseFEN(initialFen);
+      dlyInitialFen = initialFen;
 
-      if (fen && dailyBoardEl) renderFromFEN(fen, dailyBoardEl);
+      document.getElementById('dailyPuzzleTitle').textContent = `Puzzle #${puzzle?.id ?? '?'}`;
+      document.getElementById('dailyRating').textContent  = String(puzzle?.rating ?? '?');
+      document.getElementById('dailyThemes').textContent  = (puzzle?.themes ?? []).slice(0,3).join(', ') || '—';
+      document.getElementById('dailyMoveTotal').textContent = String(Math.ceil((dlySolution.length - 1) / 2));
+      const linkEl = document.getElementById('dailyLink');
+      if (linkEl) linkEl.href = `https://lichess.org/training/${puzzle?.id ?? ''}`;
+
+      const plays = puzzle?.plays;
+      setDailyDesc(plays
+        ? `Played ${plays.toLocaleString()} times · Find the best move!`
+        : 'Find the best continuation for the position below.');
+
+      renderDailyBoard();
+      updateDailyTurnLabel();
+      setTimeout(() => playDailyOpponentMove(), 700);
 
     } catch (err) {
       console.error('Daily puzzle error:', err);
-      if (titleEl) titleEl.textContent = 'Error';
-      if (descEl)  descEl.textContent  = 'Could not load the daily puzzle. Check your internet connection.';
+      document.getElementById('dailyPuzzleTitle').textContent = 'Error';
+      setDailyDesc('Could not load the daily puzzle. Check your internet connection.');
     }
+  }
+
+  function retryDailyPuzzle() {
+    if (!dlySolution.length || !dlyInitialFen) return;
+    dlyState    = parseFEN(dlyInitialFen);
+    dlyMoveIdx  = 0;
+    dlySelected = -1; dlyLegalDests = []; dlySolved = false;
+    dlyLastFrom = -1; dlyLastTo = -1;
+    document.getElementById('dailyMoveNum').textContent = '0';
+    setDailyFeedback('', '');
+    renderDailyBoard();
+    updateDailyTurnLabel();
+    setTimeout(() => playDailyOpponentMove(), 500);
+  }
+
+  function playDailyOpponentMove() {
+    if (dlyMoveIdx >= dlySolution.length) return;
+    const uci = dlySolution[dlyMoveIdx];
+    dlyLastFrom = IDX(uci.slice(0,2));
+    dlyLastTo   = IDX(uci.slice(2,4));
+    dlyState    = applyUCI(dlyState, uci);
+    dlyMoveIdx++;
+    renderDailyBoard();
+    updateDailyTurnLabel();
+    setDailyDesc('Your turn — find the best move!');
+    setDailyFeedback('', '');
+  }
+
+  function onDailySquareClick(idx) {
+    if (dlySolved) return;
+    if (dlyMoveIdx >= dlySolution.length) return;
+    const piece = dlyState.board[idx];
+
+    if (dlySelected >= 0) {
+      if (dlyLegalDests.includes(idx)) {
+        attemptDailyMove(dlySelected, idx);
+        return;
+      }
+      if (piece && piece[0] === dlyState.turn) { selectDailySquare(idx); return; }
+      deselectDailyAll();
+      return;
+    }
+    if (piece && piece[0] === dlyState.turn) selectDailySquare(idx);
+  }
+
+  function selectDailySquare(idx) {
+    deselectDailyAll();
+    dlySelected   = idx;
+    dlyLegalDests = destinations(dlyState, idx);
+    dailyBoardEl.children[idx].classList.add('selected');
+    dlyLegalDests.forEach(d => {
+      const dsq = dailyBoardEl.children[d];
+      dsq.classList.add('legal-target');
+      if (dlyState.board[d]) dsq.classList.add('has-piece');
+    });
+  }
+
+  function deselectDailyAll() {
+    dlySelected = -1; dlyLegalDests = [];
+    Array.from(dailyBoardEl.children).forEach(sq =>
+      sq.classList.remove('selected','legal-target','has-piece')
+    );
+  }
+
+  function attemptDailyMove(from, to) {
+    const uci         = SQ(from) + SQ(to);
+    const expectedUCI = dlySolution[dlyMoveIdx];
+    const correct     = uci.slice(0,4) === expectedUCI.slice(0,4);
+    deselectDailyAll();
+
+    if (correct) {
+      dlyLastFrom = from; dlyLastTo = to;
+      dlyState    = applyUCI(dlyState, expectedUCI);
+      dlyMoveIdx++;
+      renderDailyBoard();
+      document.getElementById('dailyMoveNum').textContent = String(Math.ceil(dlyMoveIdx / 2));
+
+      if (dlyMoveIdx >= dlySolution.length) {
+        dlySolved = true;
+        setDailyFeedback('✓ Puzzle solved! Excellent!', 'correct');
+        setDailyDesc('You found all the best moves!');
+        flashDailySquare(to, 'correct');
+        return;
+      }
+      setDailyFeedback('✓ Correct! Opponent is thinking…', 'correct');
+      flashDailySquare(to, 'correct');
+      setTimeout(() => playDailyOpponentMove(), 900);
+    } else {
+      setDailyFeedback('✗ Not the best move — try again!', 'wrong');
+      flashDailySquare(to, 'wrong');
+    }
+  }
+
+  function showDailySolution() {
+    if (!dlySolution.length) return;
+    let i = dlyMoveIdx;
+    setDailyFeedback('Showing solution…', '');
+    dlySolved = true;
+    deselectDailyAll();
+
+    function next() {
+      if (i >= dlySolution.length) { setDailyFeedback('✓ Solution complete!', 'correct'); return; }
+      const uci = dlySolution[i];
+      dlyLastFrom = IDX(uci.slice(0,2));
+      dlyLastTo   = IDX(uci.slice(2,4));
+      dlyState = applyUCI(dlyState, uci);
+      i++;
+      renderDailyBoard();
+      setTimeout(next, 650);
+    }
+    setTimeout(next, 200);
+  }
+
+  function renderDailyBoard() {
+    clearPieces(dailyBoardEl);
+    Array.from(dailyBoardEl.children).forEach(sq =>
+      sq.classList.remove('last-from','last-to','selected','legal-target','has-piece')
+    );
+    if (dlyLastFrom >= 0) dailyBoardEl.children[dlyLastFrom].classList.add('last-from');
+    if (dlyLastTo   >= 0) dailyBoardEl.children[dlyLastTo].classList.add('last-to');
+    dlyState.board.forEach((piece, idx) => {
+      if (!piece) return;
+      const fenChar = piece[0]==='w' ? piece[1].toUpperCase() : piece[1].toLowerCase();
+      const img = makePieceImg(fenChar, '82%');
+      if (img) dailyBoardEl.children[idx].appendChild(img);
+    });
+  }
+
+  function updateDailyTurnLabel() {
+    const label = document.getElementById('dailyTurnLabel');
+    if (!label || !dlyState) return;
+    const t = dlyState.turn;
+    label.textContent = t === 'w' ? '⬜ White to move' : '⬛ Black to move';
+    label.style.color = t === 'w' ? '#e8d5b0' : '#b58863';
+  }
+
+  function setDailyFeedback(msg, type) {
+    const el = document.getElementById('dailyFeedback');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.opacity  = msg ? '1' : '0';
+    el.style.background = type === 'correct' ? 'rgba(82,201,122,0.12)'
+      : type === 'wrong' ? 'rgba(224,82,82,0.12)' : 'transparent';
+    el.style.color = type === 'correct' ? '#52c97a'
+      : type === 'wrong' ? '#e05252' : 'var(--text-dim)';
+    el.style.border = type
+      ? `1px solid ${type==='correct' ? 'rgba(82,201,122,0.3)' : 'rgba(224,82,82,0.3)'}`
+      : 'none';
+  }
+
+  function setDailyDesc(msg) {
+    const el = document.getElementById('dailyPuzzleDesc');
+    if (el) el.textContent = msg;
+  }
+
+  function flashDailySquare(idx, type) {
+    const sq = dailyBoardEl.children[idx];
+    if (!sq) return;
+    const cls = type === 'correct' ? 'flash-correct' : 'flash-wrong';
+    sq.classList.remove('flash-correct','flash-wrong');
+    void sq.offsetWidth;
+    sq.classList.add(cls);
+    setTimeout(() => sq.classList.remove(cls), 600);
   }
 
   window.openDailyModal  = openDailyModal;
