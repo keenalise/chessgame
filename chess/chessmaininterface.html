@@ -164,7 +164,7 @@
   <!-- Daily Puzzle Modal -->
   <div id="dailyModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop"></div>
-    <div class="modal-content modal-center">
+    <div class="modal-content modal-center" style="max-width:820px;">
       <div class="modal-header">
         <div>
           <div class="modal-eyebrow">Lichess · Daily Puzzle</div>
@@ -173,13 +173,38 @@
         <button id="dailyCloseBtn" class="modal-close" aria-label="Close">✕</button>
       </div>
       <p class="modal-desc" id="dailyPuzzleDesc">Fetching today's puzzle from Lichess…</p>
-      <div id="dailyBoard" class="board daily-board" style="margin-top:14px;"></div>
-      <div class="modal-status" style="margin-top:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center;">
-        <span>Rating: <span id="dailyRating" class="status-num">—</span></span>
-        <span>Themes: <span id="dailyThemes" class="status-num">—</span></span>
-        <a id="dailyLink" href="#" target="_blank" class="btn btn-lichess" style="text-decoration:none;padding:6px 12px;font-size:0.8rem;">
-          <img src="https://lichess1.org/assets/logo/lichess-favicon-32.png" width="13" height="13" alt="" style="vertical-align:middle;margin-right:4px;">Open on Lichess
-        </a>
+
+      <!-- Status bar -->
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;">
+        <span class="modal-status">Rating: <span id="dailyRating" class="status-num">—</span></span>
+        <span class="modal-status">Themes: <span id="dailyThemes" class="status-num">—</span></span>
+        <span class="modal-status" id="dailyTurnLabel" style="font-size:0.8rem;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.06);border:1px solid var(--border);">—</span>
+      </div>
+
+      <!-- Feedback bar -->
+      <div id="dailyFeedback" style="
+        height:36px;display:flex;align-items:center;justify-content:center;
+        font-family:'DM Mono',monospace;font-size:0.85rem;font-weight:500;
+        border-radius:8px;margin:4px 0;padding:0 16px;
+        transition:all 0.25s;opacity:0;
+      "></div>
+
+      <!-- Board -->
+      <div id="dailyBoard" class="board daily-board" style="cursor:pointer;"></div>
+
+      <!-- Controls -->
+      <div class="modal-controls" style="margin-top:12px;">
+        <div class="controls-left">
+          <span class="modal-status">Move: <span id="dailyMoveNum" class="status-num">0</span> / <span id="dailyMoveTotal" class="status-num">?</span></span>
+          <a id="dailyLink" href="#" target="_blank" class="btn btn-lichess" style="text-decoration:none;font-size:0.8rem;">
+            <img src="https://lichess1.org/assets/logo/lichess-favicon-32.png" width="13" height="13" alt="" style="vertical-align:middle;margin-right:4px;">Open on Lichess
+          </a>
+        </div>
+        <div class="controls-right">
+          <button id="dailyRetryBtn"    class="btn btn-gold">Retry</button>
+          <button id="dailySolutionBtn" class="btn btn-ghost">Show Solution</button>
+          <button id="dailyCloseFooterBtn" class="btn btn-ghost">Close</button>
+        </div>
       </div>
     </div>
   </div>
