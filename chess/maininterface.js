@@ -571,7 +571,7 @@
 
       renderDailyBoard();
       updateDailyTurnLabel();
-      setTimeout(() => playDailyOpponentMove(), 700);
+      setDailyDesc('Your turn — find the best move!');
 
     } catch (err) {
       console.error('Daily puzzle error:', err);
