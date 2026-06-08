@@ -1232,3 +1232,12 @@
   }
 
 })();
+
+//ig it is a fimished project 
+//so i will give you a feedback that you can add a feature to this project
+//that is a feature of playing against the computer in the chess game
+//you can use chess.js library for the chess engine and chessboard.js for the board UI
+//this will allow users to play against an AI opponent with different difficulty levels
+//you can also add a feature to save the game history and allow users to review their past games
+//this can be done by storing the moves in local storage or using a backend database
+//overall, this project has a solid foundation and adding these features will enhance the user experience and make it more engaging for chess players of all levels.
