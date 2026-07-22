@@ -1,0 +1,131 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+}
+
+.modal {
+  background: #14131a;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: 12px;
+  padding: 22px;
+  max-width: 420px;
+  width: 100%;
+  color: #e8e6e0;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #c9a84c;
+  font-weight: 500;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: #9a978f;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.instructions {
+  font-size: 12.5px;
+  color: #9a978f;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.puzzleBoard {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid rgba(201, 168, 76, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.puzzleSquare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: clamp(12px, 3vw, 20px);
+  color: #171512;
+  user-select: none;
+}
+
+.light {
+  background: #ece4d4;
+}
+
+.dark {
+  background: #7c9473;
+}
+
+.conflict {
+  background: #c96a5c !important;
+}
+
+.legalHint {
+  box-shadow: inset 0 0 0 999px rgba(201, 168, 76, 0.25);
+}
+
+.puzzleStatus {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #9a978f;
+  text-align: center;
+}
+
+.puzzleActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  background: rgba(201, 168, 76, 0.08);
+  color: #e8e6e0;
+  cursor: pointer;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.actionBtn:hover {
+  background: rgba(201, 168, 76, 0.15);
+}
+
+.actionBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.solutionNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: #9a978f;
+}

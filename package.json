@@ -1,0 +1,27 @@
+{
+  "name": "keenchess-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test:engine": "tsx scripts/test-san-resolver.ts", 
+    "test:puzzles": "tsx scripts/test-puzzle-fixtures.ts"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "firebase": "10.12.4",
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.12",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "tsx": "^4.15.0",
+    "typescript": "5.4.5"
+  }
+}

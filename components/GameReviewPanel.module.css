@@ -1,0 +1,182 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+}
+
+.panel {
+  background: #14131a;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: 12px;
+  padding: 22px;
+  width: 100%;
+  max-width: 460px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: #e8e6e0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #c9a84c;
+  font-weight: 500;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: #9a978f;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.note {
+  font-size: 13px;
+  color: #9a978f;
+}
+
+.progressWrap {
+  margin-top: 8px;
+}
+
+.progressLabel {
+  font-size: 12.5px;
+  color: #9a978f;
+  margin-bottom: 8px;
+}
+
+.progressBar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #c9a84c, #a3843a);
+  transition: width 0.15s ease;
+}
+
+.accuracyRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.accuracyCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid rgba(201, 168, 76, 0.2);
+}
+
+.accuracyLabel {
+  font-size: 11px;
+  color: #9a978f;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.accuracyValue {
+  font-size: 22px;
+  font-weight: 600;
+  color: #c9a84c;
+}
+
+.moveList {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.moveRow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.02);
+  color: #e8e6e0;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+
+.moveRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.moveIndex {
+  color: #6f6d67;
+  font-size: 12px;
+}
+
+.moveNotation {
+  font-weight: 600;
+}
+
+.moveBadge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.best .moveBadge,
+.excellent .moveBadge {
+  background: rgba(90, 190, 120, 0.15);
+  color: #8dd3a0;
+}
+
+.good .moveBadge {
+  background: rgba(120, 170, 200, 0.15);
+  color: #9ec4e0;
+}
+
+.inaccuracy .moveBadge {
+  background: rgba(217, 164, 92, 0.15);
+  color: #e0b980;
+}
+
+.mistake .moveBadge {
+  background: rgba(217, 140, 92, 0.18);
+  color: #e0a080;
+}
+
+.blunder .moveBadge {
+  background: rgba(217, 92, 92, 0.18);
+  color: #e08888;
+}
+
+.moveList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.moveList::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.3);
+  border-radius: 3px;
+}
