@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9a978f;
+  color: var(--text-muted);
 }
 
 .container {
@@ -15,41 +15,49 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 24px;
-  border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .navBrand {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 20px;
-  color: #e8e6e0;
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
 }
 
 .navBrand span {
-  color: #c9a84c;
+  color: var(--accent);
 }
 
 .navLinks {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
 .navBtn {
   padding: 8px 14px;
-  border-radius: 7px;
+  border-radius: 8px;
   border: none;
   background: none;
-  color: #cfcdc6;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 13.5px;
+  font-weight: 500;
   text-decoration: none;
   display: inline-block;
+  transition: background 0.15s, color 0.15s;
 }
 
 .navBtn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e8e6e0;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 .navDropdownWrap {
@@ -60,88 +68,97 @@
   position: absolute;
   top: 100%;
   left: 0;
-  background: #14131a;
-  border: 1px solid rgba(201, 168, 76, 0.25);
-  border-radius: 8px;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 6px;
   display: flex;
   flex-direction: column;
-  min-width: 160px;
+  min-width: 170px;
   z-index: 500;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow);
 }
 
 .dropdown button {
   background: none;
   border: none;
-  color: #e8e6e0;
+  color: var(--text);
   text-align: left;
-  padding: 9px 10px;
-  border-radius: 5px;
+  padding: 9px 12px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
 }
 
 .dropdown button:hover {
-  background: rgba(201, 168, 76, 0.12);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 .hero {
-  padding: 60px 24px;
+  padding: 64px 24px;
   text-align: center;
-  max-width: 900px;
+  max-width: 980px;
   margin: 0 auto;
 }
 
 .heroTitle {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 34px;
-  margin: 0 0 8px;
-  color: #e8e6e0;
+  font-size: 38px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+  letter-spacing: -0.5px;
 }
 
 .heroSubtitle {
-  color: #9a978f;
-  margin: 0 0 40px;
+  color: var(--text-muted);
+  margin: 0 0 44px;
+  font-size: 16px;
 }
 
 .cardsRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 18px;
 }
 
 .card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 22px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(201, 168, 76, 0.25);
-  background: rgba(255, 255, 255, 0.02);
-  color: #e8e6e0;
+  gap: 10px;
+  padding: 26px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
 .card:hover {
-  background: rgba(201, 168, 76, 0.08);
-  border-color: rgba(201, 168, 76, 0.4);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--accent);
 }
 
 .cardIcon {
-  font-size: 28px;
-  color: #c9a84c;
+  font-size: 34px;
+  color: var(--accent);
+  line-height: 1;
 }
 
 .cardTitle {
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: 15.5px;
 }
 
 .cardDesc {
-  font-size: 12px;
-  color: #9a978f;
-  line-height: 1.4;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
 }

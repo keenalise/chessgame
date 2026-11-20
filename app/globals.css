@@ -1,9 +1,38 @@
 :root {
-  --bg-deep: #0a0a0f;
-  --gold: #c9a84c;
-  --gold-soft: rgba(201, 168, 76, 0.35);
-  --text: #e8e6e0;
-  --text-muted: #9a978f;
+  /* Light-blue / white theme (chess.com-inspired) */
+  --bg: #e8f0f9;
+  --bg-grad-1: #f2f7fc;
+  --bg-grad-2: #d9e7f5;
+
+  --surface: #ffffff;
+  --surface-2: #f3f8fd;
+  --surface-3: #e9f1fa;
+
+  --border: #d6e2f0;
+  --border-strong: #bcd0e6;
+
+  --text: #22384d;
+  --text-muted: #5f7891;
+  --text-faint: #93a7bd;
+
+  --accent: #3b82c4;
+  --accent-hover: #2f6ca8;
+  --accent-soft: #e4f0fb;
+  --accent-contrast: #ffffff;
+
+  /* Board */
+  --sq-light: #eef4fb;
+  --sq-dark: #7ba3d0;
+  --highlight: rgba(255, 206, 84, 0.55);
+  --hint: rgba(35, 65, 100, 0.22);
+
+  --shadow-sm: 0 2px 6px rgba(40, 70, 110, 0.08);
+  --shadow: 0 8px 24px rgba(40, 70, 110, 0.12);
+  --shadow-lg: 0 16px 48px rgba(30, 60, 100, 0.2);
+
+  --good: #3a9d5d;
+  --warn: #d99a3a;
+  --danger: #d9534f;
 }
 
 * {
@@ -14,9 +43,12 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: var(--bg-deep);
+  min-height: 100vh;
+  background: linear-gradient(160deg, var(--bg-grad-1) 0%, var(--bg) 45%, var(--bg-grad-2) 100%);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {

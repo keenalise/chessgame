@@ -28,7 +28,7 @@ class Particle {
     this.piece = PIECES[Math.floor(Math.random() * PIECES.length)];
     this.speed = Math.random() * 0.4 + 0.15;
     this.opacity = 0;
-    this.targetOpacity = Math.random() * 0.12 + 0.04;
+    this.targetOpacity = Math.random() * 0.16 + 0.07;
     this.fadeIn = true;
     this.drift = (Math.random() - 0.5) * 0.3;
     this.rotation = (Math.random() - 0.5) * 0.02;
@@ -52,7 +52,7 @@ class Particle {
     ctx.rotate(this.angle);
     ctx.globalAlpha = this.opacity;
     ctx.font = `${this.size}px serif`;
-    ctx.fillStyle = '#c9a84c';
+    ctx.fillStyle = '#3b82c4';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(this.piece, 0, 0);
@@ -114,7 +114,7 @@ class Streak {
       this.x - Math.cos(this.angle) * this.length,
       this.y - Math.sin(this.angle) * this.length
     );
-    grad.addColorStop(0, '#c9a84c');
+    grad.addColorStop(0, '#3b82c4');
     grad.addColorStop(1, 'transparent');
     ctx.strokeStyle = grad;
     ctx.lineWidth = 1.5;
@@ -154,7 +154,7 @@ class Star {
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.globalAlpha = this.baseOpacity * (0.5 + 0.5 * Math.sin(this.phase));
-    ctx.fillStyle = '#c9a84c';
+    ctx.fillStyle = '#3b82c4';
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
     ctx.fill();
@@ -197,9 +197,9 @@ export default function ChessBackground() {
         canvas!.height * 0.5,
         canvas!.width * 0.8
       );
-      grad.addColorStop(0, 'rgba(20,18,28,1)');
-      grad.addColorStop(0.5, 'rgba(10,10,15,1)');
-      grad.addColorStop(1, 'rgba(5,5,8,1)');
+      grad.addColorStop(0, 'rgba(242,247,252,1)');
+      grad.addColorStop(0.5, 'rgba(232,240,249,1)');
+      grad.addColorStop(1, 'rgba(217,231,245,1)');
       ctx!.fillStyle = grad;
       ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
 

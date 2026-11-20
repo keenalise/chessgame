@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import type { GameState, MoveRecord } from '@/lib/chessTypes';
-import { generateFEN } from '@/lib/chessEngine';
+import { generateFEN, isCheckmate, isStalemate } from '@/lib/chessEngine';
 import { getStockfishEngine } from '@/lib/stockfishEngine';
 import { calculateAccuracy, classifyMove, type ReviewedMove } from '@/lib/reviewClassification';
 
@@ -46,9 +46,21 @@ export function useGameReview(states: GameState[], moves: MoveRecord[]): UseGame
 
     for (let i = 0; i < states.length; i++) {
       if (cancelledRef.current) return;
-      const fen = generateFEN(states[i]);
-      const result = await engine.evaluate(fen, REVIEW_DEPTH);
-      evaluations.push({ cp: result.cp, mate: result.mate });
+      const st = states[i];
+
+      // Terminal positions have no legal moves, so the engine would just
+      // reply "bestmove (none)" (or nothing at all) and stall the review.
+      // Synthesize their evaluation directly instead of searching.
+      if (isCheckmate(st, st.turn)) {
+        // The side to move is mated. From White's perspective, a positive
+        // mate means White is delivering it.
+        evaluations.push({ cp: null, mate: st.turn === 'black' ? 1 : -1 });
+      } else if (isStalemate(st, st.turn)) {
+        evaluations.push({ cp: 0, mate: null }); // dead equal (draw)
+      } else {
+        const result = await engine.evaluate(generateFEN(st), REVIEW_DEPTH);
+        evaluations.push({ cp: result.cp, mate: result.mate });
+      }
       setProgress((i + 1) / states.length);
     }
 
