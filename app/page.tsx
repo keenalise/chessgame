@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import ChessBackground from '@/components/ChessBackground';
 import {
   createUserWithEmailPassword,
   sendPasswordReset,
@@ -151,10 +150,6 @@ export default function LoginPage() {
 
   return (
     <div className={styles.scene}>
-      <ChessBackground />
-      <div className={styles.boardOverlay} />
-      <div className={styles.vignette} />
-
       <div className={styles.logoArea}>
         <div className={styles.crownWrap}>
           <span className={styles.crownIcon}>♔</span>

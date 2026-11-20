@@ -9,24 +9,6 @@
   overflow: hidden;
 }
 
-.boardOverlay {
-  position: fixed;
-  inset: 0;
-  background-image: linear-gradient(rgba(59, 130, 196, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(59, 130, 196, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.vignette {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at center, transparent 45%, rgba(190, 215, 240, 0.5) 100%);
-  pointer-events: none;
-  z-index: -1;
-}
-
 .logoArea {
   text-align: center;
   margin-bottom: 28px;
@@ -46,12 +28,13 @@
   font-weight: 700;
   font-size: 34px;
   margin: 0;
-  color: var(--text);
+  color: var(--on-bg);
   letter-spacing: -0.5px;
+  text-shadow: 0 2px 18px rgba(10, 25, 60, 0.6);
 }
 
 .brandName span {
-  color: var(--accent);
+  color: #7cc0ff;
 }
 
 .brandTagline {
@@ -59,7 +42,7 @@
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--on-bg-muted);
 }
 
 .authCard {

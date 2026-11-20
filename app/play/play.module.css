@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--on-bg-muted);
 }
 
 .container {
@@ -24,15 +24,16 @@
 .brand {
   font-size: 22px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--on-bg);
   background: none;
   border: none;
   cursor: pointer;
   letter-spacing: -0.3px;
+  text-shadow: 0 2px 14px rgba(10, 25, 60, 0.6);
 }
 
 .brand span {
-  color: var(--accent);
+  color: #7cc0ff;
 }
 
 .topBarActions {
