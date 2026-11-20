@@ -1,0 +1,118 @@
+/* Right-edge hot-zone that triggers the reveal. */
+.hotzone {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 22px;
+  height: 100vh;
+  z-index: 9998;
+}
+
+/* Reveal handle tab. */
+.handle {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  background: linear-gradient(135deg, #4a94d8, #3b82c4);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: -4px 0 16px rgba(10, 30, 60, 0.4);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.handleIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.handleText {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+/* Sliding panel. */
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 340px;
+  max-width: 88vw;
+  z-index: 9999;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  background: rgba(10, 18, 38, 0.92);
+  backdrop-filter: blur(14px);
+  border-left: 1px solid rgba(124, 192, 255, 0.25);
+  box-shadow: -12px 0 40px rgba(5, 12, 30, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(124, 192, 255, 0.15);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8f0fb;
+}
+
+.headerActions {
+  display: flex;
+  gap: 6px;
+}
+
+.pinBtn,
+.closeBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(124, 192, 255, 0.2);
+  background: rgba(124, 192, 255, 0.08);
+  color: #e8f0fb;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pinBtn:hover,
+.closeBtn:hover {
+  background: rgba(124, 192, 255, 0.18);
+}
+
+.pinBtn[data-active='true'] {
+  background: #3b82c4;
+  border-color: transparent;
+}
+
+.embedWrap {
+  flex: 1;
+  padding: 14px;
+  min-height: 0;
+}
+
+.embedWrap iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+}

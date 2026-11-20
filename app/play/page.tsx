@@ -86,6 +86,15 @@ export default function PlayPage() {
     game.status.kind === 'stalemate' ||
     game.status.kind === 'draw';
 
+  // Honor ?mode=computer from the dashboard "vs Computer" entry point.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'computer' && !game.isVsComputer) {
+      game.toggleVsComputer();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Let the AI respond whenever it becomes its turn.
   useEffect(() => {
     game.maybeLetAIMove();

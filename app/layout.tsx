@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import BrainBackground from '@/components/BrainBackground';
+import MusicPlayer from '@/components/MusicPlayer';
 
 export const metadata: Metadata = {
   title: 'KeenChess',
@@ -17,7 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <BrainBackground />
+        {children}
+        <MusicPlayer />
+      </body>
     </html>
   );
 }
