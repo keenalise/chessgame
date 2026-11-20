@@ -11,6 +11,9 @@ export interface EngineEvaluation {
 
 type PendingResolve = (evaluation: EngineEvaluation) => void;
 
+/** Max time to wait for one position's search before giving up on it. */
+const EVAL_TIMEOUT_MS = 10000;
+
 /**
  * Thin wrapper around the Stockfish Web Worker (files served from
  * /public/stockfish/) speaking the UCI protocol directly. Kept as a
@@ -118,7 +121,29 @@ class StockfishEngine {
     this.latestInfo = { cp: null, mate: null, depth: 0, turnIsWhite: fen.split(' ')[1] !== 'b' };
 
     return new Promise((resolve) => {
-      this.pending = resolve;
+      let settled = false;
+      const finish = (evaluation: EngineEvaluation) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.pending = null;
+        resolve(evaluation);
+      };
+
+      // Safety net: if the engine never returns a bestmove (e.g. it failed to
+      // load, or chokes on a position), resolve with whatever we have so the
+      // caller's loop can never hang forever.
+      const timer = setTimeout(() => {
+        const sign = this.latestInfo.turnIsWhite ? 1 : -1;
+        finish({
+          cp: this.latestInfo.cp != null ? this.latestInfo.cp * sign : null,
+          mate: this.latestInfo.mate != null ? this.latestInfo.mate * sign : null,
+          bestMove: null,
+          depth: this.latestInfo.depth,
+        });
+      }, EVAL_TIMEOUT_MS);
+
+      this.pending = finish;
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go depth ${depth}`);
     });
