@@ -191,12 +191,12 @@ export default function LoginPage() {
 
             <form onSubmit={handleLogin}>
               <div className={styles.formGroup}>
-                <label htmlFor="loginEmail">Email or Username</label>
+                <label htmlFor="loginEmail">Email</label>
                 <input
                   id="loginEmail"
-                  type="text"
+                  type="email"
                   required
-                  autoComplete="username"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}

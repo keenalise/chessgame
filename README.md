@@ -17,32 +17,54 @@ KeenChess is a browser-based chess application built with a polished dark UI, fu
 
 ## Tech Stack
 
-- HTML5
-- CSS3
-- JavaScript
-- Firebase Authentication
-- Lichess puzzle API
-- Chess-API / engine-assisted analysis
-- Responsive web design
+- Next.js 14 (App Router) + React 18 + TypeScript
+- CSS Modules
+- Firebase Authentication (email/password + Google)
+- Lichess puzzle / cloud-eval / opening-explorer APIs (public, no key required)
+- Stockfish (WASM, bundled in `public/stockfish/`) for local engine analysis
 
 ## Project Structure
 
-- `index.html` - sign-in and registration page
-- `chessgame.html` - main chess gameplay interface
-- `chessmaininterface.html` - puzzle and dashboard interface
-- `chesslogin.js` - login, registration, and Firebase auth logic
-- `firebase.js` - Firebase initialization and auth helpers
-- `chessgame.js` - main chess engine, move logic, AI mode, and review system
-- `maininterface.js` - board rendering and puzzle modal logic
-- `chesslogin.css` - authentication page styles
-- `chessgame.css` - game board and review styles
-- `maininterface.css` - dashboard and puzzle interface styles
+- `app/page.tsx` - sign-in, registration, and password-reset page
+- `app/dashboard/page.tsx` - puzzle and dashboard interface
+- `app/play/page.tsx` - main chess gameplay interface
+- `lib/firebase.ts` - Firebase initialization and auth helpers
+- `lib/chessEngine.ts`, `lib/chessTypes.ts` - core chess logic and types
+- `lib/stockfishEngine.ts`, `lib/engineApi.ts` - engine wrappers and cloud eval
+- `hooks/` - `useAuth`, `useChessGame`, `useGameReview`, `useLichessPuzzle`
+- `components/` - board rendering, puzzles, and reusable UI
 
 ## Getting Started
 
-1. Open the project in your browser or serve it through a local web server.
-2. Start from `index.html` to sign in or register.
-3. After authentication, open the main chess interface and begin playing.
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create your local environment file and fill in your Firebase config:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Open `.env.local` and set each `NEXT_PUBLIC_FIREBASE_*` value from your
+   Firebase project (Firebase Console → Project settings → General → Your apps
+   → Web app → "SDK setup and configuration" → Config). Without these values,
+   authentication will not work and sign-in shows a configuration error.
+
+3. In the Firebase Console, enable the sign-in methods you want under
+   **Authentication → Sign-in method** (Email/Password and Google), and make
+   sure your dev domain (`localhost`) is listed under **Authentication →
+   Settings → Authorized domains**.
+
+4. Start the dev server:
+
+   ```bash
+   npm run dev
+   ```
+
+   Then open http://localhost:3000 to sign in or register.
 
 ## Main Modes
 
