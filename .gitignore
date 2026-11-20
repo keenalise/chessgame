@@ -1,6 +1,10 @@
-# Local environment files
+# Local environment files (never commit real secrets)
 .env.local
 .env
+.env.*.local
+
+# ...but DO commit the template so collaborators know which vars to set
+!.env.example
 
 # Dependencies
 node_modules/
@@ -12,3 +16,5 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+# TypeScript incremental build info
+*.tsbuildinfo

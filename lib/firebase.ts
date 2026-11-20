@@ -91,8 +91,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   'auth/operation-not-allowed': 'This sign-in method is not enabled.',
 };
 
-function getErrorMessage(code: unknown): string {
+function getErrorMessage(err: unknown): string {
+  const code = (err as { code?: string })?.code;
   if (typeof code === 'string' && ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+  // A thrown config error (from assertFirebaseConfig) has no Firebase code.
+  const message = (err as { message?: string })?.message;
+  if (typeof message === 'string' && message.startsWith('Missing Firebase env vars')) {
+    return 'Authentication is not configured. Set the NEXT_PUBLIC_FIREBASE_* values in .env.local and restart the dev server.';
+  }
   return 'An unexpected error occurred. Please try again.';
 }
 
@@ -101,7 +107,7 @@ export async function signInWithEmailPassword(email: string, password: string): 
     const result = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
     return { success: true, user: result.user, message: 'Signed in successfully!' };
   } catch (err) {
-    return { success: false, message: getErrorMessage((err as { code?: string })?.code) };
+    return { success: false, message: getErrorMessage(err) };
   }
 }
 
@@ -115,7 +121,7 @@ export async function createUserWithEmailPassword(
     await updateProfile(result.user, { displayName: username });
     return { success: true, user: result.user, message: 'Account created successfully!' };
   } catch (err) {
-    return { success: false, message: getErrorMessage((err as { code?: string })?.code) };
+    return { success: false, message: getErrorMessage(err) };
   }
 }
 
@@ -128,7 +134,7 @@ export async function signInWithGoogle(): Promise<AuthResult> {
     if (code === 'auth/popup-closed-by-user') {
       return { success: false, message: 'Sign in cancelled' };
     }
-    return { success: false, message: getErrorMessage(code) };
+    return { success: false, message: getErrorMessage(err) };
   }
 }
 
@@ -137,7 +143,7 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
     await sendPasswordResetEmail(getFirebaseAuth(), email);
     return { success: true, message: 'Password reset email sent!' };
   } catch (err) {
-    return { success: false, message: getErrorMessage((err as { code?: string })?.code) };
+    return { success: false, message: getErrorMessage(err) };
   }
 }
 
