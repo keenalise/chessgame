@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useChessGame } from '@/hooks/useChessGame';
 import { pieceImageUrl } from '@/lib/chessTypes';
-import type { PieceKind, PieceColor } from '@/lib/chessTypes';
+import type { PieceKind, PieceColor, Piece } from '@/lib/chessTypes';
 import PositionExplorer from '@/components/PositionExplorer';
 import GameReviewPanel from '@/components/GameReviewPanel';
 import styles from './play.module.css';
@@ -80,30 +80,67 @@ export default function PlayPage() {
   const { user, loading } = useAuth({ requireAuth: true });
   const game = useChessGame();
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Lets the user dismiss the chess.com-style end-of-game card (via its ×) while
+  // keeping the finished game on screen.
+  const [cardDismissed, setCardDismissed] = useState(false);
+  // Game endings the chess rules don't produce on their own: resignation and
+  // agreed draws.
+  const [manualEnd, setManualEnd] = useState<
+    { kind: 'resign'; loser: PieceColor } | { kind: 'draw' } | null
+  >(null);
 
-  const isGameOver =
+  const rulesGameOver =
     game.status.kind === 'checkmate' ||
     game.status.kind === 'stalemate' ||
     game.status.kind === 'draw';
+  const isGameOver = rulesGameOver || manualEnd !== null;
 
-  // Honor ?mode=computer from the dashboard "vs Computer" entry point.
+  // Honor ?mode=computer from the dashboard "vs Computer" / "Play Bots" entry.
+  // enableVsComputer is idempotent, so StrictMode's double-invoke is harmless.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'computer' && !game.isVsComputer) {
-      game.toggleVsComputer();
+    if (params.get('mode') === 'computer') {
+      game.enableVsComputer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Let the AI respond whenever it becomes its turn.
+  // Let the AI respond whenever it becomes its turn (but not after a resign/draw).
   useEffect(() => {
+    if (manualEnd) return;
     game.maybeLetAIMove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.state, game.isVsComputer]);
+  }, [game.state, game.isVsComputer, manualEnd]);
+
+  function handleResign() {
+    // In a vs-Computer game the human resigns; in pass & play the side to move does.
+    const loser = game.isVsComputer ? game.playerColor : game.state.turn;
+    setCardDismissed(false);
+    setManualEnd({ kind: 'resign', loser });
+  }
+  function handleDraw() {
+    setCardDismissed(false);
+    setManualEnd({ kind: 'draw' });
+  }
+  function playAgain() {
+    setManualEnd(null);
+    setCardDismissed(false);
+    game.newGame();
+  }
+  function rematch() {
+    setManualEnd(null);
+    setCardDismissed(false);
+    game.rematch();
+  }
 
   if (loading) return <div className={styles.loadingScreen}>Loading…</div>;
 
   const statusText = (() => {
+    if (manualEnd?.kind === 'resign') {
+      const winner = manualEnd.loser === 'white' ? 'Black' : 'White';
+      return `${manualEnd.loser === 'white' ? 'White' : 'Black'} resigned — ${winner} wins`;
+    }
+    if (manualEnd?.kind === 'draw') return 'Draw by agreement';
     switch (game.status.kind) {
       case 'checkmate':
         return `Checkmate — ${game.status.winner === 'white' ? 'White' : 'Black'} wins`;
@@ -120,11 +157,38 @@ export default function PlayPage() {
     }
   })();
 
+  // Unified end-of-game result: who won (or 'draw') and *how*, so the card can
+  // show a chess.com-style title + "By …" method line.
+  const gameResult: { winner: PieceColor | 'draw'; method: string } | null = (() => {
+    if (manualEnd?.kind === 'resign') {
+      return { winner: manualEnd.loser === 'white' ? 'black' : 'white', method: 'Resignation' };
+    }
+    if (manualEnd?.kind === 'draw') return { winner: 'draw', method: 'Agreement' };
+    if (game.status.kind === 'checkmate') return { winner: game.status.winner, method: 'Checkmate' };
+    if (game.status.kind === 'stalemate') return { winner: 'draw', method: 'Stalemate' };
+    if (game.status.kind === 'draw') {
+      return {
+        winner: 'draw',
+        method: game.status.reason === 'threefold-repetition' ? 'Repetition' : 'the 50-Move Rule',
+      };
+    }
+    return null;
+  })();
+
+  const youWon = gameResult && gameResult.winner !== 'draw' && gameResult.winner === game.playerColor;
+
   const gameOverTitle = (() => {
-    if (game.status.kind === 'checkmate') return game.status.winner === 'white' ? 'White Wins!' : 'Black Wins!';
-    if (game.status.kind === 'stalemate') return 'Stalemate';
-    if (game.status.kind === 'draw') return 'Draw';
-    return '';
+    if (!gameResult) return '';
+    if (gameResult.winner === 'draw') return 'Draw';
+    if (game.isVsComputer) return youWon ? 'You Won!' : 'You Lost';
+    return gameResult.winner === 'white' ? 'White Wins!' : 'Black Wins!';
+  })();
+
+  const gameOverIcon = (() => {
+    if (!gameResult) return '';
+    if (gameResult.winner === 'draw') return '🤝';
+    if (game.isVsComputer && !youWon) return '😔';
+    return '🏆';
   })();
 
   const material = deriveMaterial(game.state.board);
@@ -208,17 +272,30 @@ export default function PlayPage() {
               )}
             </div>
 
-            {isGameOver && (
+            {isGameOver && !cardDismissed && (
               <div className={styles.gameOverOverlay}>
                 <div className={styles.gameOverCard}>
+                  <button
+                    className={styles.gameOverClose}
+                    onClick={() => setCardDismissed(true)}
+                    aria-label="Close"
+                  >
+                    &times;
+                  </button>
+                  <div className={styles.gameOverIcon}>{gameOverIcon}</div>
                   <div className={styles.gameOverTitle}>{gameOverTitle}</div>
-                  <div className={styles.gameOverSub}>{statusText}</div>
+                  <div className={styles.gameOverSub}>By {gameResult?.method}</div>
                   <button className={styles.reviewCta} onClick={() => setReviewOpen(true)}>
-                    📊 Game Review
+                    <span className={styles.reviewStar}>★</span> Game Review
                   </button>
-                  <button className={styles.ghostBtn} onClick={game.newGame}>
-                    New Game
-                  </button>
+                  <div className={styles.gameOverButtons}>
+                    <button className={styles.gameOverBtn} onClick={playAgain}>
+                      Play Again
+                    </button>
+                    <button className={styles.gameOverBtn} onClick={rematch}>
+                      Rematch
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -237,9 +314,6 @@ export default function PlayPage() {
           <div className={styles.panelStatus}>{statusText}</div>
 
           <div className={styles.controlsTop}>
-            <button className={styles.primaryBtn} onClick={game.newGame}>
-              New Game
-            </button>
             <button
               className={`${styles.toggleBtn} ${game.isVsComputer ? styles.toggleOn : ''}`}
               onClick={game.toggleVsComputer}
@@ -247,6 +321,39 @@ export default function PlayPage() {
               🤖 vs Computer
               <span className={styles.toggleState}>{game.isVsComputer ? 'ON' : 'OFF'}</span>
             </button>
+
+            {!isGameOver ? (
+              <div className={styles.actionRow}>
+                <button
+                  className={styles.resignBtn}
+                  onClick={handleResign}
+                  disabled={game.moveHistory.length === 0}
+                >
+                  🏳️ Resign
+                </button>
+                <button
+                  className={styles.drawBtn}
+                  onClick={handleDraw}
+                  disabled={game.moveHistory.length === 0}
+                >
+                  ½ Draw
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className={styles.actionRow}>
+                  <button className={styles.primaryBtn} onClick={playAgain}>
+                    Play Again
+                  </button>
+                  <button className={styles.rematchBtn} onClick={rematch}>
+                    Rematch
+                  </button>
+                </div>
+                <button className={styles.reviewBtn} onClick={() => setReviewOpen(true)}>
+                  📊 Review Game
+                </button>
+              </>
+            )}
           </div>
 
           <div className={styles.movesTitle}>Moves</div>
@@ -289,16 +396,6 @@ export default function PlayPage() {
               ⏭
             </button>
           </div>
-
-          <button
-            className={styles.reviewBtn}
-            onClick={() => setReviewOpen(true)}
-            disabled={!isGameOver}
-            title={isGameOver ? 'Review the finished game' : 'Available once the game ends'}
-          >
-            📊 Review Game
-          </button>
-          {!isGameOver && <p className={styles.reviewHint}>Game review unlocks when the game ends.</p>}
         </aside>
       </div>
 
@@ -308,8 +405,19 @@ export default function PlayPage() {
             <p>Promote to:</p>
             <div className={styles.promotionChoices}>
               {PROMOTION_CHOICES.map((kind) => (
-                <button key={kind} className={styles.promotionChoice} onClick={() => game.resolvePromotion(kind)}>
-                  {kind[0].toUpperCase() + kind.slice(1)}
+                <button
+                  key={kind}
+                  className={styles.promotionChoice}
+                  onClick={() => game.resolvePromotion(kind)}
+                  title={kind[0].toUpperCase() + kind.slice(1)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={pieceImageUrl(`${game.state.turn}_${kind}` as Piece)}
+                    alt={kind}
+                    className={styles.promotionPieceImg}
+                    draggable={false}
+                  />
                 </button>
               ))}
             </div>

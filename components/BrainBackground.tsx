@@ -26,8 +26,8 @@ interface Pulse {
 }
 
 interface Thought {
-  a: number; // orbit semi-major (in brain radii)
-  b: number; // orbit semi-minor
+  rxFactor: number; // horizontal orbit radius as a fraction of viewport width
+  ryFactor: number; // vertical orbit radius as a fraction of viewport height
   tilt: number; // orbit rotation
   speed: number; // rad/s (sign = direction)
   angle: number;
@@ -97,14 +97,15 @@ export default function BrainBackground() {
     }
 
     // --- Orbiting thoughts ---
-    const GLYPHS = ['💡', '♟', '♞', '♛', null, null, null];
-    for (let i = 0; i < 7; i++) {
-      const a = 1.35 + Math.random() * 0.9;
+    // Radii are fractions of the viewport so the orbits span the whole screen
+    // (reaching the far left/right sides), not just the area around the brain.
+    const GLYPHS = ['💡', '♟', '♞', '♛', '♝', null, null, null, null, null, null];
+    for (let i = 0; i < 11; i++) {
       thoughts.push({
-        a,
-        b: a * (0.52 + Math.random() * 0.26),
-        tilt: Math.random() * Math.PI,
-        speed: (Math.random() * 0.25 + 0.12) * (Math.random() < 0.5 ? -1 : 1),
+        rxFactor: 0.34 + Math.random() * 0.26, // 0.34–0.60 of width
+        ryFactor: 0.24 + Math.random() * 0.22, // 0.24–0.46 of height
+        tilt: (Math.random() - 0.5) * 0.5, // gentle tilt keeps orbits broadly horizontal
+        speed: (Math.random() * 0.22 + 0.09) * (Math.random() < 0.5 ? -1 : 1),
         angle: Math.random() * Math.PI * 2,
         size: 3.4 + Math.random() * 2.6,
         glyph: GLYPHS[i % GLYPHS.length],
@@ -153,7 +154,8 @@ export default function BrainBackground() {
       ctx!.fillRect(0, 0, W, H);
 
       // Soft luminous halo around the whole brain region.
-      const halo = ctx!.createRadialGradient(cx, cy, R * 0.1, cx, cy, R * 1.8);
+      const haloR = Math.max(R * 1.8, W * 0.52);
+      const halo = ctx!.createRadialGradient(cx, cy, R * 0.1, cx, cy, haloR);
       halo.addColorStop(0, 'rgba(74,140,230,0.4)');
       halo.addColorStop(0.5, 'rgba(60,110,210,0.16)');
       halo.addColorStop(1, 'rgba(60,120,220,0)');
@@ -215,8 +217,8 @@ export default function BrainBackground() {
       // Revolving thoughts.
       for (const th of thoughts) {
         if (!reduceMotion) th.angle += th.speed * dt;
-        const lx = Math.cos(th.angle) * th.a * R;
-        const ly = Math.sin(th.angle) * th.b * R;
+        const lx = Math.cos(th.angle) * th.rxFactor * W;
+        const ly = Math.sin(th.angle) * th.ryFactor * H;
         const x = cx + lx * Math.cos(th.tilt) - ly * Math.sin(th.tilt);
         const y = cy + lx * Math.sin(th.tilt) + ly * Math.cos(th.tilt);
 

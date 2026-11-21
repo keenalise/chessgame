@@ -92,6 +92,9 @@ const explorerCache = new Map<string, ExplorerData | null>();
 const evalCache = new Map<string, EngineMove | null>();
 
 export default function PositionExplorer({ fen, sanConverter, onClose }: PositionExplorerProps) {
+  // Collapsed by default — it's an optional study aid, not a core control, and
+  // we only hit the network once the user actually opens it.
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [data, setData] = useState<ExplorerData | null>(null);
@@ -99,7 +102,7 @@ export default function PositionExplorer({ fen, sanConverter, onClose }: Positio
   const requestToken = useRef(0);
 
   useEffect(() => {
-    if (!fen) return;
+    if (!fen || !open) return;
     const key = normalizeFEN(fen);
     const myToken = ++requestToken.current;
 
@@ -132,24 +135,46 @@ export default function PositionExplorer({ fen, sanConverter, onClose }: Positio
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [fen]);
+  }, [fen, open]);
 
   const totalGames = (data?.white ?? 0) + (data?.draws ?? 0) + (data?.black ?? 0);
   const hasMoves = !!data?.moves?.length;
   const noData = !loading && !error && data && !hasMoves && !totalGames;
 
+  // Collapsed: just a small pill in the corner.
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={styles.collapsedToggle}
+        onClick={() => setOpen(true)}
+        title="Opening explorer: master games & engine preference for this position"
+      >
+        🔍 Explorer
+      </button>
+    );
+  }
+
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <span className={styles.title}>Position Explorer</span>
-        {onClose && (
-          <button type="button" className={styles.close} onClick={onClose} title="Hide panel">
-            &times;
-          </button>
-        )}
+        <span className={styles.title}>Opening Explorer</span>
+        <button
+          type="button"
+          className={styles.close}
+          onClick={() => {
+            setOpen(false);
+            onClose?.();
+          }}
+          title="Hide panel"
+        >
+          &times;
+        </button>
       </div>
 
       <div className={styles.body}>
+        <p className={styles.hint}>Master-game stats &amp; the engine&apos;s pick for the current position.</p>
+
         {loading && <div className={styles.loading}>Looking up position…</div>}
 
         {!loading && error && (

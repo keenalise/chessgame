@@ -14,11 +14,16 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 22px;
-  max-width: 420px;
+  padding: 20px 22px;
   width: 100%;
+  /* Large, near-full-screen: capped by viewport height so the square board
+     always fits (the board fills the modal width). */
+  max-width: min(94vw, calc(100vh - 210px));
+  max-height: 96vh;
   color: var(--text);
   box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
 }
 
 .modalHeader {
@@ -71,7 +76,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: clamp(12px, 3vw, 22px);
+  font-size: clamp(16px, 6vmin, 52px);
+  font-weight: 600;
   color: var(--text);
   user-select: none;
 }

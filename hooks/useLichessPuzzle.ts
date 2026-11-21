@@ -23,6 +23,7 @@ interface RawPuzzleResponse {
     initialPly: number;
     solution: string[];
     themes: string[];
+    fen?: string;
   };
 }
 
@@ -39,11 +40,6 @@ interface UseLichessPuzzleResult {
   attemptMove: (from: Pos, to: Pos) => void;
   showSolution: () => void;
   reload: () => void;
-}
-
-/** Converts a UCI move string like "e2e4" or "e7e8q" into chess.js's move-object shape. */
-function uciToChessJsMove(uci: string): { from: string; to: string; promotion?: string } {
-  return { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.length > 4 ? uci[4] : undefined };
 }
 
 /**
@@ -82,32 +78,35 @@ export function useLichessPuzzle(endpoint: string): UseLichessPuzzleResult {
       if (!res.ok) throw new Error(`Puzzle fetch failed: ${res.status}`);
       const data: RawPuzzleResponse = await res.json();
 
-      const sanMoves = data.game.pgn.trim().split(/\s+/).filter(Boolean);
-      const chess = new Chess();
-
-      const pliesToReplay = data.puzzle.initialPly + 1;
-      for (let i = 0; i < pliesToReplay; i++) {
-        const san = sanMoves[i];
-        if (!san) break;
-        if (!chess.move(san)) {
-          throw new Error(`This puzzle's game history could not be replayed (move ${i + 1}: "${san}").`);
+      // The puzzle position is the one the solver actually faces (it is their
+      // move). The API provides it directly as puzzle.fen, so start from there.
+      // The solver then plays solution[0], the opponent replies with
+      // solution[1], the solver plays solution[2], and so on.
+      let puzzleState: GameState;
+      if (data.puzzle.fen) {
+        puzzleState = parseFEN(data.puzzle.fen);
+      } else {
+        // Fallback for older responses without a fen: replay the game PGN to
+        // the puzzle position (initialPly + 1 plies). We do NOT apply any
+        // solution move here — solution[0] is the solver's first move.
+        const sanMoves = data.game.pgn.trim().split(/\s+/).filter(Boolean);
+        const chess = new Chess();
+        const pliesToReplay = data.puzzle.initialPly + 1;
+        for (let i = 0; i < pliesToReplay; i++) {
+          const san = sanMoves[i];
+          if (!san) break;
+          if (!chess.move(san)) {
+            throw new Error(`This puzzle's game history could not be replayed (move ${i + 1}: "${san}").`);
+          }
         }
+        puzzleState = parseFEN(chess.fen());
       }
-
-      // solution[0] is the "setup" move that establishes the puzzle position;
-      // the player is responsible for solution[1], solution[2], ...
-      const setupUci = data.puzzle.solution[0];
-      if (setupUci && !chess.move(uciToChessJsMove(setupUci))) {
-        throw new Error(`This puzzle's setup move ("${setupUci}") was not legal in the replayed position.`);
-      }
-
-      const replayState = parseFEN(chess.fen());
 
       retryCountRef.current = 0;
-      setState(replayState);
+      setState(puzzleState);
       setSolution(data.puzzle.solution);
-      setNextSolutionIndex(1);
-      setPuzzleColor(replayState.turn);
+      setNextSolutionIndex(0); // the solver plays solution[0] first
+      setPuzzleColor(puzzleState.turn);
       setRating(data.puzzle.rating);
       setThemes(data.puzzle.themes || []);
     } catch (err) {
@@ -135,9 +134,15 @@ export function useLichessPuzzle(endpoint: string): UseLichessPuzzleResult {
       if (!state) return;
       if (!isMoveLegal(state, from, to)) return;
 
-      const { state: nextState, move } = applyMove(state, from, to);
-      const uci = moveToUCI(move);
       const expected = solution[nextSolutionIndex];
+      // If the solution is a promotion (e.g. "g7g8q" or an underpromotion),
+      // promote to the piece it specifies; applyMove defaults to queen otherwise.
+      const expectedPromo = expected && expected.length > 4 ? expected[4] : undefined;
+      const promoKind =
+        expectedPromo === 'r' ? 'rook' : expectedPromo === 'b' ? 'bishop' : expectedPromo === 'n' ? 'knight' : expectedPromo === 'q' ? 'queen' : undefined;
+
+      const { state: nextState, move } = applyMove(state, from, to, { promotion: promoKind });
+      const uci = moveToUCI(move);
 
       // Compare ignoring promotion-letter case; both sides use lowercase already.
       if (expected && uci === expected) {
