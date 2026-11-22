@@ -145,12 +145,29 @@ export function useChessGame() {
     setAiThinking(false);
   }, []);
 
+  /** Like newGame, but swaps which colour the human plays (used for "Rematch"). */
+  const rematch = useCallback(() => {
+    setHistory([{ state: createInitialState(), move: null }]);
+    setCursor(0);
+    setSelected(null);
+    setPendingPromotion(null);
+    setAiThinking(false);
+    setPlayerColor((c) => (c === 'white' ? 'black' : 'white'));
+  }, []);
+
   const toggleVsComputer = useCallback(() => {
     setIsVsComputer((prev) => {
       const next = !prev;
       if (next) setPlayerColor(state.turn);
       return next;
     });
+  }, [state.turn]);
+
+  /** Idempotent "turn vs-Computer on" — safe to call repeatedly (e.g. from an
+   *  effect that may run twice under React StrictMode). */
+  const enableVsComputer = useCallback(() => {
+    setIsVsComputer(true);
+    setPlayerColor(state.turn);
   }, [state.turn]);
 
   /** Call this after every human move (or on mount) to let the AI respond if it's its turn. */
@@ -216,7 +233,9 @@ export function useChessGame() {
     goToLive,
     goToIndex,
     newGame,
+    rematch,
     toggleVsComputer,
+    enableVsComputer,
     maybeLetAIMove,
   };
 }
