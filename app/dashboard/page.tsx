@@ -4,12 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { signOutUser } from '@/lib/firebase';
-import EightQueensPuzzle from '@/components/EightQueensPuzzle';
-import KnightTourPuzzle from '@/components/KnightTourPuzzle';
-import LichessPuzzleModal from '@/components/LichessPuzzleModal';
 import styles from './dashboard.module.css';
-
-type ActiveModal = 'eight' | 'knight' | 'daily' | 'random' | null;
 
 /** Tracks a consecutive-day visit streak in localStorage (best-effort). */
 function useVisitStreak(): number {
@@ -49,9 +44,12 @@ function MiniBoard({ pieces }: { pieces?: string }) {
 export default function DashboardPage() {
   const { user, loading } = useAuth({ requireAuth: true });
   const router = useRouter();
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [mode, setMode] = useState<'standard' | 'computer'>('standard');
   const streak = useVisitStreak();
+
+  /** Navigate to a puzzle/trainer's own full-screen page. */
+  const openPuzzle = (slug: 'daily' | 'random' | 'eight-queens' | 'knights-tour') =>
+    router.push(`/puzzle/${slug}`);
 
   async function handleLogout() {
     if (!confirm('Are you sure you want to log out?')) return;
@@ -69,9 +67,9 @@ export default function DashboardPage() {
 
   const railItems: { icon: string; label: string; onClick: () => void }[] = [
     { icon: '♟', label: 'Play', onClick: () => router.push('/play') },
-    { icon: '🧩', label: 'Puzzles', onClick: () => setActiveModal('daily') },
-    { icon: '♞', label: '8 Queens', onClick: () => setActiveModal('eight') },
-    { icon: '🐴', label: "Knight's Tour", onClick: () => setActiveModal('knight') },
+    { icon: '🧩', label: 'Puzzles', onClick: () => openPuzzle('daily') },
+    { icon: '♞', label: '8 Queens', onClick: () => openPuzzle('eight-queens') },
+    { icon: '🐴', label: "Knight's Tour", onClick: () => openPuzzle('knights-tour') },
   ];
 
   return (
@@ -139,24 +137,24 @@ export default function DashboardPage() {
                 <button className={styles.secondaryBtn} onClick={() => router.push('/play')}>
                   ♟ New Board
                 </button>
-                <button className={styles.secondaryBtn} onClick={() => setActiveModal('random')}>
+                <button className={styles.secondaryBtn} onClick={() => openPuzzle('random')}>
                   🧩 Solve a Puzzle
                 </button>
               </div>
             </section>
 
             <section className={styles.previewRow}>
-              <button className={styles.previewCard} onClick={() => setActiveModal('random')}>
+              <button className={styles.previewCard} onClick={() => openPuzzle('random')}>
                 <MiniBoard pieces="♘" />
                 <span className={styles.previewLabel}>Solve Puzzles</span>
                 <span className={styles.previewBtn}>Start</span>
               </button>
-              <button className={styles.previewCard} onClick={() => setActiveModal('eight')}>
+              <button className={styles.previewCard} onClick={() => openPuzzle('eight-queens')}>
                 <MiniBoard pieces="♛" />
                 <span className={styles.previewLabel}>8 Queens</span>
                 <span className={styles.previewBtn}>Play</span>
               </button>
-              <button className={styles.previewCard} onClick={() => setActiveModal('knight')}>
+              <button className={styles.previewCard} onClick={() => openPuzzle('knights-tour')}>
                 <MiniBoard pieces="♞" />
                 <span className={styles.previewLabel}>Knight&apos;s Tour</span>
                 <span className={styles.previewBtn}>Play</span>
@@ -186,20 +184,20 @@ export default function DashboardPage() {
               </div>
               <MiniBoard pieces="♚ ♜" />
               <p className={styles.dailyDesc}>Today&apos;s tactic from Lichess.</p>
-              <button className={styles.startBtn} onClick={() => setActiveModal('daily')}>
+              <button className={styles.startBtn} onClick={() => openPuzzle('daily')}>
                 Solve Daily Puzzle
               </button>
             </section>
 
             <section className={styles.quickCard}>
               <h3 className={styles.quickTitle}>Trainers</h3>
-              <button className={styles.quickRow} onClick={() => setActiveModal('eight')}>
+              <button className={styles.quickRow} onClick={() => openPuzzle('eight-queens')}>
                 <span>♛</span> 8 Queens Puzzle
               </button>
-              <button className={styles.quickRow} onClick={() => setActiveModal('knight')}>
+              <button className={styles.quickRow} onClick={() => openPuzzle('knights-tour')}>
                 <span>♞</span> Knight&apos;s Tour
               </button>
-              <button className={styles.quickRow} onClick={() => setActiveModal('random')}>
+              <button className={styles.quickRow} onClick={() => openPuzzle('random')}>
                 <span>🎲</span> Random Puzzle
               </button>
               <button className={styles.quickRow} onClick={() => router.push('/play')}>
@@ -209,23 +207,6 @@ export default function DashboardPage() {
           </aside>
         </div>
       </div>
-
-      {activeModal === 'eight' && <EightQueensPuzzle onClose={() => setActiveModal(null)} />}
-      {activeModal === 'knight' && <KnightTourPuzzle onClose={() => setActiveModal(null)} />}
-      {activeModal === 'daily' && (
-        <LichessPuzzleModal
-          title="Daily Puzzle"
-          endpoint="https://lichess.org/api/puzzle/daily"
-          onClose={() => setActiveModal(null)}
-        />
-      )}
-      {activeModal === 'random' && (
-        <LichessPuzzleModal
-          title="Random Puzzle"
-          endpoint="https://lichess.org/api/puzzle/next"
-          onClose={() => setActiveModal(null)}
-        />
-      )}
     </div>
   );
 }

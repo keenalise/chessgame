@@ -638,38 +638,34 @@
   z-index: 10000;
 }
 
+/* Lichess-style vertical promotion picker: a narrow white column of pieces
+   with a × to cancel at the bottom. */
 .promotionModal {
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 22px;
-  text-align: center;
-  color: var(--text);
-  box-shadow: var(--shadow-lg);
-}
-
-.promotionChoices {
+  width: 92px;
+  background: #f4f6f9;
+  border-radius: 8px;
+  box-shadow: 0 10px 34px rgba(8, 22, 48, 0.5);
   display: flex;
-  gap: 8px;
-  margin: 14px 0;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .promotionChoice {
-  width: 68px;
-  height: 68px;
-  padding: 6px;
-  border-radius: 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-2);
-  color: var(--text);
+  width: 92px;
+  height: 92px;
+  padding: 10px;
+  border: none;
+  border-bottom: 1px solid rgba(20, 40, 70, 0.08);
+  background: #f4f6f9;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.12s;
 }
 
 .promotionChoice:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: #cfe3fb;
 }
 
 .promotionPieceImg {
@@ -679,13 +675,20 @@
   pointer-events: none;
 }
 
-.formLinkLike {
-  background: none;
+.promotionCancel {
+  height: 40px;
   border: none;
-  color: var(--text-muted);
-  text-decoration: underline;
+  background: #e4e8ee;
+  color: #5a6b80;
+  font-size: 17px;
+  line-height: 1;
   cursor: pointer;
-  font-size: 12px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.promotionCancel:hover {
+  background: #d6dbe3;
+  color: #2a3a4f;
 }
 
 /* When the panel no longer fits beside the board it wraps below, so the board
