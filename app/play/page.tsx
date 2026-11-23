@@ -10,7 +10,7 @@ import PositionExplorer from '@/components/PositionExplorer';
 import GameReviewPanel from '@/components/GameReviewPanel';
 import styles from './play.module.css';
 
-const PROMOTION_CHOICES: PieceKind[] = ['queen', 'rook', 'bishop', 'knight'];
+const PROMOTION_CHOICES: PieceKind[] = ['queen', 'knight', 'rook', 'bishop'];
 
 const PIECE_VALUE: Record<string, number> = { pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0 };
 const INITIAL_COUNTS: Record<string, number> = { pawn: 8, knight: 2, bishop: 2, rook: 2, queen: 1, king: 1 };
@@ -400,29 +400,30 @@ export default function PlayPage() {
       </div>
 
       {game.pendingPromotion && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.promotionModal}>
-            <p>Promote to:</p>
-            <div className={styles.promotionChoices}>
-              {PROMOTION_CHOICES.map((kind) => (
-                <button
-                  key={kind}
-                  className={styles.promotionChoice}
-                  onClick={() => game.resolvePromotion(kind)}
-                  title={kind[0].toUpperCase() + kind.slice(1)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={pieceImageUrl(`${game.state.turn}_${kind}` as Piece)}
-                    alt={kind}
-                    className={styles.promotionPieceImg}
-                    draggable={false}
-                  />
-                </button>
-              ))}
-            </div>
-            <button className={styles.formLinkLike} onClick={game.cancelPromotion}>
-              Cancel
+        <div className={styles.modalOverlay} onClick={game.cancelPromotion}>
+          <div className={styles.promotionModal} onClick={(e) => e.stopPropagation()}>
+            {PROMOTION_CHOICES.map((kind) => (
+              <button
+                key={kind}
+                className={styles.promotionChoice}
+                onClick={() => game.resolvePromotion(kind)}
+                title={kind[0].toUpperCase() + kind.slice(1)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pieceImageUrl(`${game.state.turn}_${kind}` as Piece)}
+                  alt={kind}
+                  className={styles.promotionPieceImg}
+                  draggable={false}
+                />
+              </button>
+            ))}
+            <button
+              className={styles.promotionCancel}
+              onClick={game.cancelPromotion}
+              aria-label="Cancel promotion"
+            >
+              &times;
             </button>
           </div>
         </div>
