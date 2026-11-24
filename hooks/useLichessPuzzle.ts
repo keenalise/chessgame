@@ -166,8 +166,16 @@ export function useLichessPuzzle(endpoint: string): UseLichessPuzzleResult {
           setFeedback('none');
         }, 500);
       } else {
+        // Legal, but not the solution move. Play it on the board so the user
+        // actually sees their move, flag it as wrong, then take it back after a
+        // moment so they can try again (the usual puzzle-trainer behavior).
+        const prevState = state;
+        setState(nextState);
         setFeedback('incorrect');
-        setTimeout(() => setFeedback('none'), 800);
+        setTimeout(() => {
+          setState(prevState);
+          setFeedback('none');
+        }, 1200);
       }
     },
     [state, solution, nextSolutionIndex]
