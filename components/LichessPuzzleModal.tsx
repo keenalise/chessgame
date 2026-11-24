@@ -49,8 +49,20 @@ export default function LichessPuzzleModal({ title, endpoint, onClose }: Lichess
 
         {!loading && !error && state && (
           <>
+            <div className={styles.turnBadge}>
+              <span
+                className={`${styles.turnDot} ${
+                  puzzleColor === 'white' ? styles.turnDotWhite : styles.turnDotBlack
+                }`}
+                aria-hidden
+              />
+              <span className={styles.turnText}>
+                {puzzleColor === 'white' ? 'White' : 'Black'} to move
+              </span>
+              {rating ? <span className={styles.turnRating}>rated {rating}</span> : null}
+            </div>
             <p className={styles.instructions}>
-              {puzzleColor === 'white' ? 'White' : 'Black'} to move{rating ? ` · rated ${rating}` : ''}
+              Find the best move for {puzzleColor === 'white' ? 'White' : 'Black'} — play it on the board.
             </p>
 
             <div className={styles.puzzleBoard}>
@@ -85,9 +97,9 @@ export default function LichessPuzzleModal({ title, endpoint, onClose }: Lichess
             </div>
 
             <div className={styles.puzzleStatus}>
-              {feedback === 'correct' && 'Correct! ✓'}
-              {feedback === 'incorrect' && 'Not quite — try again'}
-              {feedback === 'solved' && 'Puzzle solved! 🎉'}
+              {feedback === 'correct' && <span className={styles.statusGood}>✓ Correct — best move!</span>}
+              {feedback === 'incorrect' && <span className={styles.statusBad}>✗ Wrong move — try again</span>}
+              {feedback === 'solved' && <span className={styles.statusGood}>🎉 Puzzle solved!</span>}
               {feedback === 'none' && '\u00A0'}
             </div>
 
