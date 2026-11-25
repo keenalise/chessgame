@@ -14,9 +14,10 @@ interface LichessPuzzleModalProps {
 }
 
 export default function LichessPuzzleModal({ title, endpoint, onClose }: LichessPuzzleModalProps) {
-  const { loading, error, state, puzzleColor, rating, feedback, attemptMove, showSolution, reload } =
+  const { loading, error, state, puzzleColor, rating, feedback, hintSquare, attemptMove, showSolution, reload } =
     useLichessPuzzle(endpoint);
   const [selected, setSelected] = useState<Pos | null>(null);
+  const [hintShown, setHintShown] = useState(false);
 
   const legalDestinations = state && selected ? getLegalDestinations(state, selected) : [];
 
@@ -27,6 +28,7 @@ export default function LichessPuzzleModal({ title, endpoint, onClose }: Lichess
     if (selected && legalDestinations.some((d) => d.row === pos.row && d.col === pos.col)) {
       attemptMove(selected, pos);
       setSelected(null);
+      setHintShown(false); // clear the hint once a move is made
       return;
     }
 
@@ -71,6 +73,7 @@ export default function LichessPuzzleModal({ title, endpoint, onClose }: Lichess
                   const isDark = (r + c) % 2 === 1;
                   const isSelected = selected?.row === r && selected?.col === c;
                   const isLegal = legalDestinations.some((d) => d.row === r && d.col === c);
+                  const isHint = hintShown && hintSquare?.row === r && hintSquare?.col === c;
                   return (
                     <div
                       key={`${r}-${c}`}
@@ -78,6 +81,7 @@ export default function LichessPuzzleModal({ title, endpoint, onClose }: Lichess
                         styles.puzzleSquare,
                         isDark ? styles.dark : styles.light,
                         isSelected ? styles.legalHint : '',
+                        isHint ? styles.hintSquare : '',
                       ].join(' ')}
                       onClick={() => handleSquareClick({ row: r, col: c })}
                     >
@@ -104,10 +108,31 @@ export default function LichessPuzzleModal({ title, endpoint, onClose }: Lichess
             </div>
 
             <div className={styles.puzzleActions}>
-              <button className={styles.actionBtn} onClick={showSolution} disabled={feedback === 'solved'}>
+              <button
+                className={styles.actionBtn}
+                onClick={() => setHintShown(true)}
+                disabled={feedback === 'solved' || !hintSquare}
+              >
+                💡 Hint
+              </button>
+              <button
+                className={styles.actionBtn}
+                onClick={() => {
+                  setHintShown(false);
+                  showSolution();
+                }}
+                disabled={feedback === 'solved'}
+              >
                 Show Solution
               </button>
-              <button className={styles.actionBtn} onClick={reload}>
+              <button
+                className={styles.actionBtn}
+                onClick={() => {
+                  setHintShown(false);
+                  setSelected(null);
+                  reload();
+                }}
+              >
                 New Puzzle
               </button>
             </div>
