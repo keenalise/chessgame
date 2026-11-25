@@ -34,6 +34,17 @@
   --warn: #d99a3a;
   --danger: #d9534f;
 
+  /* Game-review move classifications (chess.com-style) */
+  --cls-brilliant: #1baca6;
+  --cls-great: #5b8fbf;
+  --cls-best: #3a9d5d;
+  --cls-excellent: #5fa054;
+  --cls-good: #7f9e6a;
+  --cls-book: #a07f5f;
+  --cls-inaccuracy: #e0a53a;
+  --cls-mistake: #e07a33;
+  --cls-blunder: #ca3431;
+
   /* Text that sits directly on the dark animated background (not inside a card). */
   --on-bg: #eaf2fe;
   --on-bg-muted: #a7bedd;
