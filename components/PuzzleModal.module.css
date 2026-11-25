@@ -98,6 +98,29 @@
   box-shadow: inset 0 0 0 999px var(--highlight);
 }
 
+/* Highlights the piece the Hint button reveals: a pulsing accent ring plus a
+   soft amber wash, distinct from the selected-square highlight. */
+.hintSquare {
+  box-shadow:
+    inset 0 0 0 999px var(--highlight),
+    inset 0 0 0 4px var(--accent);
+  animation: hintPulse 1.1s ease-in-out infinite;
+}
+
+@keyframes hintPulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 999px var(--highlight),
+      inset 0 0 0 4px var(--accent);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 999px var(--highlight),
+      inset 0 0 0 7px var(--accent);
+  }
+}
+
 /* Whose-move-it-is badge, shown above the board. */
 .turnBadge {
   display: inline-flex;

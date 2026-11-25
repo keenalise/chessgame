@@ -37,6 +37,8 @@ interface UseLichessPuzzleResult {
   rating: number | null;
   themes: string[];
   feedback: PuzzleFeedback;
+  /** The square of the piece the solver should move next, or null if solved. */
+  hintSquare: Pos | null;
   attemptMove: (from: Pos, to: Pos) => void;
   showSolution: () => void;
   reload: () => void;
@@ -205,5 +207,10 @@ export function useLichessPuzzle(endpoint: string): UseLichessPuzzleResult {
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
-  return { loading, error, state, puzzleColor, rating, themes, feedback, attemptMove, showSolution, reload };
+  // The piece to move for the next solution step - the "from" square of the
+  // move the solver is expected to play. Used to power the Hint button.
+  const hintSquare: Pos | null =
+    nextSolutionIndex < solution.length ? parseUCI(solution[nextSolutionIndex]).from : null;
+
+  return { loading, error, state, puzzleColor, rating, themes, feedback, hintSquare, attemptMove, showSolution, reload };
 }
