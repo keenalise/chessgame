@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import type { GameState, MoveRecord, Piece } from '@/lib/chessTypes';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { GameState, MoveRecord, Piece, Pos } from '@/lib/chessTypes';
 import { pieceImageUrl } from '@/lib/chessTypes';
 import { useGameReview } from '@/hooks/useGameReview';
 import {
@@ -50,6 +50,57 @@ const ICON_CLASS: Record<MoveClassification, string> = {
   blunder: styles.iconBlunder,
 };
 
+// Annotation colours, keyed the chess.com way: plain drag = green, with a
+// modifier held = red / blue / yellow.
+const ANNOTATION_COLORS = {
+  green: '#15781b',
+  red: '#882020',
+  blue: '#003088',
+  yellow: '#e68f00',
+} as const;
+type AnnotationColor = (typeof ANNOTATION_COLORS)[keyof typeof ANNOTATION_COLORS];
+
+interface Arrow {
+  from: Pos;
+  to: Pos;
+  color: AnnotationColor;
+}
+interface Highlight {
+  pos: Pos;
+  color: AnnotationColor;
+}
+
+function annotationColor(e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }): AnnotationColor {
+  if (e.shiftKey) return ANNOTATION_COLORS.red;
+  if (e.altKey) return ANNOTATION_COLORS.blue;
+  if (e.ctrlKey || e.metaKey) return ANNOTATION_COLORS.yellow;
+  return ANNOTATION_COLORS.green;
+}
+
+/** Arrow geometry in "square units" (each board square is 1x1, viewBox 0 0 8 8). */
+function arrowGeometry(from: Pos, to: Pos) {
+  const fx = from.col + 0.5;
+  const fy = from.row + 0.5;
+  const tx = to.col + 0.5;
+  const ty = to.row + 0.5;
+  const dx = tx - fx;
+  const dy = ty - fy;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const headLen = 0.34;
+  const headHalf = 0.19;
+  const startGap = 0.1;
+  const bx = tx - ux * headLen; // base of the arrowhead
+  const by = ty - uy * headLen;
+  const sx = fx + ux * startGap; // shaft start, a touch out from the source centre
+  const sy = fy + uy * startGap;
+  const px = -uy; // perpendicular
+  const py = ux;
+  const headPoints = `${tx},${ty} ${bx + px * headHalf},${by + py * headHalf} ${bx - px * headHalf},${by - py * headHalf}`;
+  return { sx, sy, bx, by, headPoints };
+}
+
 function ClassIcon({ c, size = 'sm' }: { c: MoveClassification; size?: 'sm' | 'lg' }) {
   return (
     <span className={`${styles.icon} ${ICON_CLASS[c]} ${size === 'lg' ? styles.iconLg : ''}`}>
@@ -78,6 +129,13 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
 
   // Which position (0..states.length-1) the board/eval bar currently shows.
   const [displayPly, setDisplayPly] = useState(states.length - 1);
+  const displayPlyRef = useRef(displayPly);
+  displayPlyRef.current = displayPly;
+
+  // Right-click annotations (arrows + square highlights), cleared on navigation.
+  const [arrows, setArrows] = useState<Arrow[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const dragStart = useRef<Pos | null>(null);
 
   // Kick off automatically when the panel opens.
   useEffect(() => {
@@ -95,7 +153,90 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
   function goTo(ply: number) {
     const clamped = Math.max(0, Math.min(states.length - 1, ply));
     setDisplayPly(clamped);
+    setArrows([]); // annotations belong to a position; clear them on navigation
+    setHighlights([]);
     onJumpToPly(clamped); // keep the underlying game board in sync
+  }
+
+  // Arrow-key navigation (chess.com-style): ←/→ step, ↑/↓ jump to start/end.
+  useEffect(() => {
+    if (reviewing || reviewedMoves.length === 0) return;
+    function onKey(e: KeyboardEvent) {
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          goTo(displayPlyRef.current - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          goTo(displayPlyRef.current + 1);
+          break;
+        case 'ArrowUp':
+        case 'Home':
+          e.preventDefault();
+          goTo(0);
+          break;
+        case 'ArrowDown':
+        case 'End':
+          e.preventDefault();
+          goTo(states.length - 1);
+          break;
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewing, reviewedMoves.length, states.length]);
+
+  // If a right-drag is released anywhere outside the board, abandon it.
+  useEffect(() => {
+    function onUp() {
+      dragStart.current = null;
+    }
+    window.addEventListener('mouseup', onUp);
+    return () => window.removeEventListener('mouseup', onUp);
+  }, []);
+
+  function toggleArrow(from: Pos, to: Pos, color: AnnotationColor) {
+    setArrows((prev) => {
+      const exists = prev.some(
+        (a) => a.from.row === from.row && a.from.col === from.col && a.to.row === to.row && a.to.col === to.col
+      );
+      if (exists) {
+        return prev.filter(
+          (a) => !(a.from.row === from.row && a.from.col === from.col && a.to.row === to.row && a.to.col === to.col)
+        );
+      }
+      return [...prev, { from, to, color }];
+    });
+  }
+
+  function toggleHighlight(pos: Pos, color: AnnotationColor) {
+    setHighlights((prev) => {
+      const exists = prev.some((h) => h.pos.row === pos.row && h.pos.col === pos.col);
+      if (exists) return prev.filter((h) => !(h.pos.row === pos.row && h.pos.col === pos.col));
+      return [...prev, { pos, color }];
+    });
+  }
+
+  function handleSquareMouseDown(e: React.MouseEvent, r: number, c: number) {
+    if (e.button === 2) {
+      dragStart.current = { row: r, col: c };
+    } else if (e.button === 0) {
+      // A left click clears annotations, just like chess.com.
+      setArrows([]);
+      setHighlights([]);
+    }
+  }
+
+  function handleSquareMouseUp(e: React.MouseEvent, r: number, c: number) {
+    if (e.button !== 2) return;
+    const start = dragStart.current;
+    dragStart.current = null;
+    if (!start) return;
+    const color = annotationColor(e);
+    if (start.row === r && start.col === c) toggleHighlight({ row: r, col: c }, color);
+    else toggleArrow(start, { row: r, col: c }, color);
   }
 
   // Per-side counts of each classification, for the summary table.
@@ -116,7 +257,6 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
   const lastMove = displayPly > 0 ? moves[displayPly - 1] : null;
   const whiteFrac = currentEval ? whiteWinFraction(currentEval.cp, currentEval.mate) : 0.5;
   const evalText = currentEval ? formatEval(currentEval.cp, currentEval.mate) : '0.0';
-  // Which end of the bar the number sits at - chess.com shows it on the leader's side.
   const evalFavoursWhite = whiteFrac >= 0.5;
 
   // Group plies into number | white | black rows for the move list.
@@ -161,39 +301,68 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
                   </span>
                 </div>
 
-                <div className={styles.board}>
-                  {displayState.board.map((row, r) =>
-                    row.map((piece, c) => {
-                      const isDark = (r + c) % 2 === 1;
-                      const isFrom = lastMove && lastMove.from.row === r && lastMove.from.col === c;
-                      const isTo = lastMove && lastMove.to.row === r && lastMove.to.col === c;
+                <div className={styles.boardStage} onContextMenu={(e) => e.preventDefault()}>
+                  <div className={styles.board}>
+                    {displayState.board.map((row, r) =>
+                      row.map((piece, c) => {
+                        const isDark = (r + c) % 2 === 1;
+                        const isFrom = lastMove && lastMove.from.row === r && lastMove.from.col === c;
+                        const isTo = lastMove && lastMove.to.row === r && lastMove.to.col === c;
+                        const hl = highlights.find((h) => h.pos.row === r && h.pos.col === c);
+                        return (
+                          <div
+                            key={`${r}-${c}`}
+                            className={[
+                              styles.square,
+                              isDark ? styles.dark : styles.light,
+                              isFrom || isTo ? styles.moveHighlight : '',
+                            ].join(' ')}
+                            onMouseDown={(e) => handleSquareMouseDown(e, r, c)}
+                            onMouseUp={(e) => handleSquareMouseUp(e, r, c)}
+                          >
+                            {hl && (
+                              <span className={styles.sqHighlight} style={{ backgroundColor: hl.color }} />
+                            )}
+                            {piece && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={pieceImageUrl(piece as Piece)}
+                                alt={piece}
+                                className={styles.pieceImg}
+                                draggable={false}
+                              />
+                            )}
+                            {isTo && currentMove && (
+                              <span className={styles.squareBadge}>
+                                <ClassIcon c={currentMove.classification} />
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Arrow overlay - sits above the pieces, ignores pointer events. */}
+                  <svg className={styles.arrowSvg} viewBox="0 0 8 8" preserveAspectRatio="none">
+                    {arrows.map((a, i) => {
+                      const g = arrowGeometry(a.from, a.to);
                       return (
-                        <div
-                          key={`${r}-${c}`}
-                          className={[
-                            styles.square,
-                            isDark ? styles.dark : styles.light,
-                            isFrom || isTo ? styles.moveHighlight : '',
-                          ].join(' ')}
-                        >
-                          {piece && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={pieceImageUrl(piece as Piece)}
-                              alt={piece}
-                              className={styles.pieceImg}
-                              draggable={false}
-                            />
-                          )}
-                          {isTo && currentMove && (
-                            <span className={styles.squareBadge}>
-                              <ClassIcon c={currentMove.classification} />
-                            </span>
-                          )}
-                        </div>
+                        <g key={i} opacity={0.85}>
+                          <line
+                            x1={g.sx}
+                            y1={g.sy}
+                            x2={g.bx}
+                            y2={g.by}
+                            stroke={a.color}
+                            strokeWidth={0.16}
+                            strokeLinecap="round"
+                          />
+                          <polygon points={g.headPoints} fill={a.color} />
+                        </g>
                       );
-                    })
-                  )}
+                    })}
+                  </svg>
                 </div>
               </div>
 
@@ -248,6 +417,7 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
                   ⏭
                 </button>
               </div>
+              <div className={styles.hintRow}>← → arrow keys to step · right-drag to draw arrows</div>
             </div>
 
             {/* RIGHT: accuracy, classification summary, move list */}

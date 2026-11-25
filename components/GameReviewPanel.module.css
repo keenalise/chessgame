@@ -11,13 +11,16 @@
 }
 
 .panel {
+  /* Board size drives the whole left column; sized to fill the viewport the
+     way the main play board does, capped so the right pane still fits. */
+  --rv-board: max(240px, min(calc(100vh - 250px), calc(96vw - 430px), 660px));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px 22px;
   width: 100%;
-  max-width: 940px;
-  max-height: 94vh;
+  max-width: min(96vw, 1180px);
+  max-height: 96vh;
   display: flex;
   flex-direction: column;
   color: var(--text);
@@ -91,10 +94,12 @@
 
 .leftPane {
   flex: 0 0 auto;
-  width: min(100%, 400px);
+  /* board + eval bar (26px) + gap (8px) */
+  width: calc(var(--rv-board) + 34px);
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .rightPane {
@@ -109,12 +114,14 @@
 .boardArea {
   display: flex;
   gap: 8px;
+  height: var(--rv-board);
 }
 
 .evalBar {
   position: relative;
-  width: 22px;
-  flex-shrink: 0;
+  width: 26px;
+  height: 100%;
+  flex: 0 0 auto;
   border-radius: 5px;
   overflow: hidden;
   display: flex;
@@ -154,15 +161,31 @@
   color: #eef4fb;
 }
 
+.boardStage {
+  position: relative;
+  height: 100%;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+}
+
 .board {
-  flex: 1;
+  position: absolute;
+  inset: 0;
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  aspect-ratio: 1;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+}
+
+.arrowSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
 }
 
 .square {
@@ -170,6 +193,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
+}
+
+/* Right-click square highlight - sits under the piece, chess.com style. */
+.sqHighlight {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  z-index: 0;
 }
 
 .light {
@@ -185,6 +217,7 @@
 }
 
 .pieceImg {
+  position: relative;
   width: 84%;
   height: 84%;
   pointer-events: none;
@@ -264,6 +297,12 @@
 .navBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.hintRow {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
 }
 
 /* --- accuracy --- */
