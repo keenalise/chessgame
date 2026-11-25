@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useChessGame } from '@/hooks/useChessGame';
 import { pieceImageUrl } from '@/lib/chessTypes';
 import type { PieceKind, PieceColor, Piece } from '@/lib/chessTypes';
+import { playChessSound } from '@/lib/chessSounds';
 import PositionExplorer from '@/components/PositionExplorer';
-import GameReviewPanel from '@/components/GameReviewPanel';
 import styles from './play.module.css';
+
+/** Must match REVIEW_STORAGE_KEY in app/review/page.tsx. */
+const REVIEW_STORAGE_KEY = 'keenchess:review';
 
 const PROMOTION_CHOICES: PieceKind[] = ['queen', 'knight', 'rook', 'bishop'];
 
@@ -79,7 +82,6 @@ export default function PlayPage() {
   const router = useRouter();
   const { user, loading } = useAuth({ requireAuth: true });
   const game = useChessGame();
-  const [reviewOpen, setReviewOpen] = useState(false);
   // Lets the user dismiss the chess.com-style end-of-game card (via its ×) while
   // keeping the finished game on screen.
   const [cardDismissed, setCardDismissed] = useState(false);
@@ -112,6 +114,52 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.state, game.isVsComputer, manualEnd]);
 
+  // Play a Lichess move sound whenever a new move is committed (human or AI).
+  // Guarded by the move count so undo/redo navigation stays silent.
+  const prevMoveCount = useRef(0);
+  useEffect(() => {
+    const n = game.moveHistory.length;
+    if (n > prevMoveCount.current) {
+      const mv = game.moveHistory[n - 1];
+      const type =
+        mv.isCheck || mv.isCheckmate
+          ? 'check'
+          : mv.isCapture || mv.isEnPassant
+          ? 'capture'
+          : mv.isCastle
+          ? 'castle'
+          : 'move';
+      playChessSound(type);
+    }
+    prevMoveCount.current = n;
+  }, [game.moveHistory]);
+
+  // A Lichess result sound once the game ends.
+  const endSoundPlayed = useRef(false);
+  useEffect(() => {
+    if (!isGameOver) {
+      endSoundPlayed.current = false;
+      return;
+    }
+    if (endSoundPlayed.current) return;
+    endSoundPlayed.current = true;
+    let winner: PieceColor | 'draw';
+    if (manualEnd?.kind === 'resign') winner = manualEnd.loser === 'white' ? 'black' : 'white';
+    else if (manualEnd?.kind === 'draw') winner = 'draw';
+    else if (game.status.kind === 'checkmate') winner = game.status.winner;
+    else winner = 'draw'; // stalemate / draw by rule
+    const sound =
+      winner === 'draw'
+        ? 'draw'
+        : game.isVsComputer
+        ? winner === game.playerColor
+          ? 'victory'
+          : 'defeat'
+        : 'victory';
+    playChessSound(sound);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGameOver]);
+
   function handleResign() {
     // In a vs-Computer game the human resigns; in pass & play the side to move does.
     const loser = game.isVsComputer ? game.playerColor : game.state.turn;
@@ -131,6 +179,19 @@ export default function PlayPage() {
     setManualEnd(null);
     setCardDismissed(false);
     game.rematch();
+  }
+  // Open the Game Review in its own window: stash the finished game (just the
+  // move coordinates - the review window replays them) and pop it open.
+  function openReview() {
+    const payload = {
+      moves: game.moveHistory.map((m) => ({ from: m.from, to: m.to, promotion: m.promotion })),
+    };
+    try {
+      localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* storage unavailable - the review window will show its empty state */
+    }
+    window.open('/review', 'keenchess-review');
   }
 
   if (loading) return <div className={styles.loadingScreen}>Loading…</div>;
@@ -285,7 +346,7 @@ export default function PlayPage() {
                   <div className={styles.gameOverIcon}>{gameOverIcon}</div>
                   <div className={styles.gameOverTitle}>{gameOverTitle}</div>
                   <div className={styles.gameOverSub}>By {gameResult?.method}</div>
-                  <button className={styles.reviewCta} onClick={() => setReviewOpen(true)}>
+                  <button className={styles.reviewCta} onClick={openReview}>
                     <span className={styles.reviewStar}>★</span> Game Review
                   </button>
                   <div className={styles.gameOverButtons}>
@@ -349,7 +410,7 @@ export default function PlayPage() {
                     Rematch
                   </button>
                 </div>
-                <button className={styles.reviewBtn} onClick={() => setReviewOpen(true)}>
+                <button className={styles.reviewBtn} onClick={openReview}>
                   📊 Review Game
                 </button>
               </>
@@ -430,17 +491,6 @@ export default function PlayPage() {
       )}
 
       <PositionExplorer fen={game.fen} />
-
-      {reviewOpen && (
-        <GameReviewPanel
-          states={game.states}
-          moves={game.moveHistory}
-          onJumpToPly={(ply) => {
-            game.goToIndex(ply);
-          }}
-          onClose={() => setReviewOpen(false)}
-        />
-      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   whiteWinFraction,
   type MoveClassification,
 } from '@/lib/reviewClassification';
+import { playChessSound } from '@/lib/chessSounds';
 import styles from './GameReviewPanel.module.css';
 
 const CLASSIFICATION_LABEL: Record<MoveClassification, string> = {
@@ -121,9 +122,17 @@ interface GameReviewPanelProps {
   moves: MoveRecord[];
   onJumpToPly: (ply: number) => void;
   onClose: () => void;
+  /** When false, clicking the backdrop does not close (used for the dedicated review window). */
+  dismissOnBackdrop?: boolean;
 }
 
-export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }: GameReviewPanelProps) {
+export default function GameReviewPanel({
+  states,
+  moves,
+  onJumpToPly,
+  onClose,
+  dismissOnBackdrop = true,
+}: GameReviewPanelProps) {
   const { reviewing, progress, reviewedMoves, evaluations, whiteAccuracy, blackAccuracy, startReview, cancelReview } =
     useGameReview(states, moves);
 
@@ -132,10 +141,13 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
   const displayPlyRef = useRef(displayPly);
   displayPlyRef.current = displayPly;
 
-  // Right-click annotations (arrows + square highlights), cleared on navigation.
-  const [arrows, setArrows] = useState<Arrow[]>([]);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  // Right-click annotations (arrows + square highlights), kept PER position so
+  // stepping back to a move restores whatever you drew on it.
+  const [arrowsByPly, setArrowsByPly] = useState<Record<number, Arrow[]>>({});
+  const [highlightsByPly, setHighlightsByPly] = useState<Record<number, Highlight[]>>({});
   const dragStart = useRef<Pos | null>(null);
+  const arrows = arrowsByPly[displayPly] ?? [];
+  const highlights = highlightsByPly[displayPly] ?? [];
 
   // Kick off automatically when the panel opens.
   useEffect(() => {
@@ -150,11 +162,26 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewing]);
 
+  function playNavSound(ply: number) {
+    if (ply <= 0) return;
+    const mv = moves[ply - 1];
+    if (!mv) return;
+    const type =
+      mv.isCheck || mv.isCheckmate
+        ? 'check'
+        : mv.isCapture || mv.isEnPassant
+        ? 'capture'
+        : mv.isCastle
+        ? 'castle'
+        : 'move';
+    playChessSound(type);
+  }
+
   function goTo(ply: number) {
     const clamped = Math.max(0, Math.min(states.length - 1, ply));
+    if (clamped !== displayPlyRef.current) playNavSound(clamped);
+    displayPlyRef.current = clamped; // keep the ref ahead of the render for rapid key-repeat
     setDisplayPly(clamped);
-    setArrows([]); // annotations belong to a position; clear them on navigation
-    setHighlights([]);
     onJumpToPly(clamped); // keep the underlying game board in sync
   }
 
@@ -198,24 +225,21 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
   }, []);
 
   function toggleArrow(from: Pos, to: Pos, color: AnnotationColor) {
-    setArrows((prev) => {
-      const exists = prev.some(
-        (a) => a.from.row === from.row && a.from.col === from.col && a.to.row === to.row && a.to.col === to.col
-      );
-      if (exists) {
-        return prev.filter(
-          (a) => !(a.from.row === from.row && a.from.col === from.col && a.to.row === to.row && a.to.col === to.col)
-        );
-      }
-      return [...prev, { from, to, color }];
+    setArrowsByPly((prev) => {
+      const list = prev[displayPly] ?? [];
+      const same = (a: Arrow) =>
+        a.from.row === from.row && a.from.col === from.col && a.to.row === to.row && a.to.col === to.col;
+      const next = list.some(same) ? list.filter((a) => !same(a)) : [...list, { from, to, color }];
+      return { ...prev, [displayPly]: next };
     });
   }
 
   function toggleHighlight(pos: Pos, color: AnnotationColor) {
-    setHighlights((prev) => {
-      const exists = prev.some((h) => h.pos.row === pos.row && h.pos.col === pos.col);
-      if (exists) return prev.filter((h) => !(h.pos.row === pos.row && h.pos.col === pos.col));
-      return [...prev, { pos, color }];
+    setHighlightsByPly((prev) => {
+      const list = prev[displayPly] ?? [];
+      const same = (h: Highlight) => h.pos.row === pos.row && h.pos.col === pos.col;
+      const next = list.some(same) ? list.filter((h) => !same(h)) : [...list, { pos, color }];
+      return { ...prev, [displayPly]: next };
     });
   }
 
@@ -223,9 +247,9 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
     if (e.button === 2) {
       dragStart.current = { row: r, col: c };
     } else if (e.button === 0) {
-      // A left click clears annotations, just like chess.com.
-      setArrows([]);
-      setHighlights([]);
+      // A left click clears this position's annotations, just like chess.com.
+      setArrowsByPly((prev) => ({ ...prev, [displayPly]: [] }));
+      setHighlightsByPly((prev) => ({ ...prev, [displayPly]: [] }));
     }
   }
 
@@ -266,7 +290,7 @@ export default function GameReviewPanel({ states, moves, onJumpToPly, onClose }:
   }
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={dismissOnBackdrop ? onClose : undefined}>
       <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h3>Game Review</h3>
